@@ -1,1 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中信房屋文山木新店 ｜ 物件總表地圖</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16302c;
+    --ink-soft:#294844;
+    --paper:#f4f1e8;
+    --paper-panel:#ffffff;
+    --brass:#b6842c;
+    --brass-soft:#e8c98a;
+    --moss:#3f6b5c;
+    --line:#dcd6c4;
+    --text:#20211d;
+    --text-dim:#6a6f63;
+    --danger:#a4462f;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:'Noto Sans TC', system-ui, sans-serif;
+    background:var(--paper);
+    color:var(--text);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  header{
+    background:var(--ink);
+    color:#f4f1e8;
+    padding:14px 22px;
+    display:flex;
+    align-items:baseline;
+    gap:14px;
+    flex-wrap:wrap;
+    border-bottom:3px solid var(--brass);
+    z-index:20;
+  }
+  header h1{
+    font-family:'Noto Serif TC', serif;
+    font-weight:700;
+    font-size:19px;
+    margin:0;
+    letter-spacing:.5px;
+  }
+  header .sub{
+    font-size:12.5px;
+    color:#cfd8c9;
+    opacity:.85;
+  }
+  header .count{
+    margin-left:auto;
+    font-size:12.5px;
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.18);
+    padding:4px 10px;
+    border-radius:20px;
+  }
+  .layout{
+    flex:1;
+    display:flex;
+    min-height:0;
+  }
+  #sidebar{
+    width:340px;
+    min-width:340px;
+    background:var(--paper-panel);
+    border-right:1px solid var(--line);
+    display:flex;
+    flex-direction:column;
+    z-index:10;
+  }
+  .search-box{
+    padding:12px;
+    border-bottom:1px solid var(--line);
+  }
+  .search-box input{
+    width:100%;
+    padding:9px 12px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-size:13.5px;
+    font-family:inherit;
+    background:var(--paper);
+    color:var(--text);
+  }
+  .search-box input:focus{
+    outline:2px solid var(--brass);
+    outline-offset:1px;
+  }
+  .filters{
+    display:flex;
+    gap:6px;
+    padding:0 12px 10px;
+    flex-wrap:wrap;
+  }
+  .chip{
+    font-size:11.5px;
+    padding:4px 10px;
+    border-radius:20px;
+    border:1px solid var(--line);
+    background:var(--paper);
+    cursor:pointer;
+    color:var(--text-dim);
+    user-select:none;
+  }
+  .chip.active{
+    background:var(--ink);
+    color:#fff;
+    border-color:var(--ink);
+  }
+  .price-select{
+    font-size:11.5px;
+    padding:4px 8px;
+    border-radius:20px;
+    border:1px solid var(--line);
+    background:var(--paper);
+    color:var(--text-dim);
+    cursor:pointer;
+    font-family:inherit;
+  }
+  .price-select:focus{ outline:2px solid var(--brass); outline-offset:1px; }
+  .price-select.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  #list{
+    flex:1;
+    overflow-y:auto;
+  }
+  .item{
+    padding:11px 14px;
+    border-bottom:1px solid var(--line);
+    cursor:pointer;
+    transition:background .12s ease;
+  }
+  .item:hover{ background:#faf7ee; }
+  .item.selected{ background:#f0ead4; border-left:3px solid var(--brass); padding-left:11px; }
+  .item-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap:8px;
+  }
+  .item-name{
+    font-size:13.5px;
+    font-weight:600;
+    line-height:1.35;
+  }
+  .item-name .num{
+    color:var(--brass);
+    font-family:'Noto Serif TC',serif;
+    font-weight:700;
+    margin-right:4px;
+  }
+  .item-price{
+    font-size:12.5px;
+    color:var(--moss);
+    font-weight:700;
+    white-space:nowrap;
+  }
+  .item-addr{
+    font-size:11.5px;
+    color:var(--text-dim);
+    margin-top:3px;
+  }
+  .item-tags{
+    margin-top:6px;
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+  }
+  .tag{
+    font-size:10.5px;
+    padding:2px 7px;
+    border-radius:4px;
+    background:#eee7d3;
+    color:var(--ink-soft);
+  }
+  .tag.new{ background:#dceee2; color:var(--moss); }
+  .tag.approx{ background:#f3e2d3; color:var(--danger); }
+  .tag.link{ background:#e3ebe6; color:var(--moss); }
+  .tag.key{ background:#f6e8c8; color:#8a5a12; font-weight:700; border:1px solid #e0c583; }
+  #map{
+    flex:1;
+    background:#dfe6df;
+  }
+  .leaflet-popup-content-wrapper{
+    border-radius:10px;
+    font-family:'Noto Sans TC', sans-serif;
+  }
+  .popup-name{
+    font-family:'Noto Serif TC',serif;
+    font-weight:700;
+    font-size:14.5px;
+    margin:0 0 4px;
+    color:var(--ink);
+  }
+  .popup-addr{ font-size:12px; color:var(--text-dim); margin-bottom:6px;}
+  .popup-row{ font-size:12px; margin:2px 0; }
+  .popup-detail{ font-size:11.5px; color:var(--text-dim); margin-top:6px; line-height:1.5; }
+  .popup-link{
+    display:inline-block;
+    margin-top:8px;
+    padding:6px 12px;
+    background:var(--brass);
+    color:#fff !important;
+    border-radius:6px;
+    font-size:12px;
+    text-decoration:none;
+    font-weight:600;
+  }
+  .popup-link:hover{ background:#9c6f24; }
+  .empty-state{
+    padding:40px 20px;
+    text-align:center;
+    color:var(--text-dim);
+    font-size:13px;
+  }
+  ::-webkit-scrollbar{ width:8px; }
+  ::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }
 
+  @media (max-width:760px){
+    .layout{ flex-direction:column; }
+    #sidebar{ width:100%; min-width:0; height:42vh; border-right:none; border-bottom:1px solid var(--line);}
+    #map{ height:58vh; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>中信房屋文山木新店 ｜ 物件總表地圖</h1>
+  <span class="sub">木新加盟店・文山、深坑、周邊區域現售物件 ｜ 🔑 表示本店有鑰匙，可即時帶看</span>
+  <span class="count" id="countBadge">共 0 筆</span>
+</header>
+<div class="layout">
+  <div id="sidebar">
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="搜尋案名、地址或承辦人..." aria-label="搜尋物件">
+    </div>
+    <div class="filters">
+      <div class="chip active" data-filter="all">全部</div>
+      <div class="chip" data-filter="new">新增物件</div>
+      <div class="chip" data-filter="link">有詳情連結</div>
+      <div class="chip" data-filter="key">🔑 有鑰匙</div>
+      <select class="price-select" id="priceRange" aria-label="價格區間篩選">
+        <option value="all">💰 全部價格</option>
+        <option value="0-1000">1000萬以下</option>
+        <option value="1000-1500">1000–1500萬</option>
+        <option value="1500-2000">1500–2000萬</option>
+        <option value="2000-3000">2000–3000萬</option>
+        <option value="3000-5000">3000–5000萬</option>
+        <option value="5000-">5000萬以上</option>
+      </select>
+    </div>
+    <div id="list"></div>
+  </div>
+  <div id="map"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const DATA = [{"id": 1, "name": "裕隆城裝潢黃金三樓", "addr": "中興路二段100巷11號3樓", "price": 1680, "agent": "東", "lat": 24.9713254, "lon": 121.5481463, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE2NTU0MTQ4Ng==", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 2, "name": "實踐光輝四房一樓", "addr": "光輝路66號", "price": 3160, "agent": "東", "lat": 24.9844949, "lon": 121.5553873, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE2NDYzNzk4OA==", "approx": false, "new": false, "key": true, "detail": "未來元利商城，三面採光，停車方便，有車位"}, {"id": 3, "name": "小西華質感三房捷運宅", "addr": "康寧路三段16巷118號二樓", "price": 4680, "agent": "慈", "lat": 25.070824, "lon": 121.609481, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28113353%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 5, "name": "未來捷運邊間美屋", "addr": "興隆路四段29巷4弄29號4樓", "price": 1598, "agent": "馬", "lat": 24.9902129, "lon": 121.5605824, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE1MzQyMzYzNg==", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 6, "name": "喜砌景觀電梯三樓", "addr": "新北市深坑區北深路二段135-1號3樓", "price": 1820, "agent": "蘭", "lat": 25.0023504, "lon": 121.6150972, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE1MDEyODAzOA==", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 7, "name": "市政府捷運精品美兩房", "addr": "松隆路73巷1號3樓", "price": 1698, "agent": "店長、勝彬", "lat": 25.0450632, "lon": 121.5692751, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE4MDk1NTk0Mg==", "approx": false, "new": false, "key": true, "detail": "前陽台、儲藏室，低樓層、小坪數"}, {"id": 9, "name": "五峰國中美寓", "addr": "五峯路123號3樓", "price": 1380, "agent": "棋.邑", "lat": 24.9664274, "lon": 121.5449874, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTEyNDM1NDY3Nw==", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 10, "name": "溫莎小築｜精緻邊間套房", "addr": "錦州街30巷12號9樓之4", "price": 950, "agent": "寧", "lat": 25.0595512, "lon": 121.5246835, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgxOTEyNTEwMDczNA", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 11, "name": "雙連捷運大套房NO.1", "addr": "民生東路一段48號7樓之6", "price": 720, "agent": "詠.彬", "lat": 25.0579235, "lon": 121.5247908, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTEzMDkyNDM2Nw==", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 12, "name": "清新美景雅緻兩房", "addr": "臺北市文山區富山路16-8、16-9號3樓", "price": 3880, "agent": "幸華", "lat": 24.9895098, "lon": 121.5539814, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE5MDIwOTc4OQ==", "approx": false, "new": false, "key": true, "detail": "距離未來捷運南環線考試院站約350公尺"}, {"id": 14, "name": "新店站溫馨兩房", "addr": "國校路72號4樓", "price": 1266, "agent": "越婷", "lat": 24.9531808, "lon": 121.5384655, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDczMTEzMTQxODA2Mw==", "approx": false, "new": false, "key": true, "detail": "靜巷住宅，鬧中取靜，邊間採光佳、通風好"}, {"id": 16, "name": "四季旁低總美寓4+5", "addr": "木柵路一段304號4樓", "price": 1298, "agent": "詠、大東", "lat": 24.9884714, "lon": 121.5569842, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28113574%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 17, "name": "文化學區景觀大三房", "addr": "文化三路12之2號10樓", "price": 2980, "agent": "詠、勝彬", "lat": 25.137586, "lon": 121.497828, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28112938%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 19, "name": "中科大捷運二樓收租屋", "addr": "興隆路三段36巷9弄6號2樓", "price": 2350, "agent": "惠閔", "lat": 24.9997868, "lon": 121.5554089, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE4NDEwNzUwMg==", "approx": false, "new": false, "key": true, "detail": "步行至萬芳醫院捷運站約5分鐘，交通便利"}, {"id": 20, "name": "寶高邊間超值頂佳", "addr": "寶高路120巷5弄16號5樓", "price": 1580, "agent": "店長．勝彬", "lat": 24.965, "lon": 121.542, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTIwMDQxNzg2MA==", "approx": true, "new": false, "key": true, "detail": "邊間、三面採光、通風好、格局方正，使用空間大（門牌待精確定位，座標仍為街道概略位置）"}, {"id": 22, "name": "松雍101信義計畫區尊榮豪邸", "addr": "松勇路69巷1號6樓", "price": 22500, "agent": "小華", "lat": 25.0337212, "lon": 121.5701677, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28113212%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 23, "name": "王者鄉靜心景觀戶", "addr": "仙岩路22巷17號7樓", "price": 1955, "agent": "阿福", "lat": 24.998898, "lon": 121.5497999, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28113457%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 24, "name": "翠谷優質電梯四房＋車位", "addr": "翠谷街33號4樓", "price": 1338, "agent": "蘭.慈", "lat": 25.0093617, "lon": 121.6264127, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE0MDgyMTU0Mg==", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 25, "name": "裕隆城邊間裝潢美三樓", "addr": "寶興路60巷2號3樓", "price": 1398, "agent": "閔", "lat": 24.9713254, "lon": 121.5481463, "link": null, "approx": true, "new": false, "key": true, "detail": ""}, {"id": 26, "name": "新貴挑高四代同堂+坡平車位", "addr": "臺北市文山區忠順街二段85巷1弄2號3樓", "price": 3280, "agent": "店長、勝彬", "lat": 24.985635, "lon": 121.56545, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE4NDg1MDU1MA==", "approx": false, "new": false, "key": true, "detail": "6房2廳4衛 · 建坪86.56坪｜主建49.32·附屬17.2·公設8.15·車位11.89坪｜屋齡36｜坐北朝南·挑高3米6｜3-5F四代同堂+頂樓大露臺｜坡平車位獨立權狀·出租中｜近木柵市場學區(木柵國中·明道國小)"}, {"id": 27, "name": "101未來捷運優質三房", "addr": "信義路五段150巷401弄4樓", "price": 2980, "agent": "慈", "lat": 25.024391, "lon": 121.5704249, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTEzMzQzOTk4NA==", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 28, "name": "市府捷運溫馨套房(專任)", "addr": "永吉路4號3樓之1", "price": 1188, "agent": "李慈", "lat": 25.0455323, "lon": 121.5674913, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE4MTY0MTMzNA==", "approx": false, "new": false, "key": true, "detail": "步行至市府捷運約7分鐘，信義商圈生活機能佳"}, {"id": 29, "name": "萬隆捷運商三邊間四直產首選", "addr": "興隆路一段3號3樓", "price": 2000, "agent": "閔.婷", "lat": 25.004136, "lon": 121.539002, "link": null, "approx": false, "new": false, "key": true, "detail": ""}, {"id": 30, "name": "陽光水秀三房優質華廈", "addr": "埔新街24號2樓", "price": 1260, "agent": "詠.華", "lat": 25.0035354, "lon": 121.6208332, "link": "https://ab.cthousing.com.tw/EDM/ObjectForSale/2095028", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 31, "name": "河濱庭院大空間一樓", "addr": "恆光街22巷15號1樓", "price": 4138, "agent": "閔", "lat": 24.9821116, "lon": 121.5663522, "link": null, "approx": false, "new": false, "key": true, "detail": ""}, {"id": 32, "name": "再興捷運收租頂家", "addr": "興隆路四段29巷4弄35號5樓", "price": 1398, "agent": "周", "lat": 24.9900301, "lon": 121.5608194, "link": null, "approx": false, "new": false, "key": true, "detail": ""}, {"id": 33, "name": "雲鄉溫馨透天", "addr": "雲鄉路61巷10號", "price": 1800, "agent": "小陽", "lat": 24.9989673, "lon": 121.6216042, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE5NTUxNjA5Nw==", "approx": false, "new": false, "key": true, "detail": "近北二高交流道、信義快速道路，空氣清新"}, {"id": 34, "name": "政大高樓景觀戶+車位", "addr": "新光路一段32巷35號8樓", "price": 3800, "agent": "李慈", "lat": 24.9903799, "lon": 121.5728945, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE1MDk0MDE2MA==", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 35, "name": "NO.1低總電梯兩房首選", "addr": "興隆路三段255巷23之3號2樓", "price": 900, "agent": "福.慈", "lat": 24.9930928, "lon": 121.5609931, "link": null, "approx": false, "new": false, "key": true, "detail": ""}, {"id": 36, "name": "六張犁捷運電梯兩房", "addr": "富陽街35巷5號4樓", "price": 2100, "agent": "詠.彬", "lat": 25.0228469, "lon": 121.556463, "link": null, "approx": false, "new": false, "key": true, "detail": ""}, {"id": 37, "name": "萬芳醫院捷運大一樓", "addr": "興隆路三段36巷9弄6號一樓", "price": 2988, "agent": "哲", "lat": 24.9997868, "lon": 121.5554089, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28111578%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 38, "name": "尚青苑雅緻兩房車位", "addr": "木柵路ㄧ段238巷15弄13號5樓", "price": 2643, "agent": "詠.彬", "lat": 24.9876374, "lon": 121.553532, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTEzNDE1Njk2MQ==", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 39, "name": "光輝黃金三樓", "addr": "光輝路70號3樓", "price": 1980, "agent": "箏", "lat": 24.9843779, "lon": 121.5553976, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28113563%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 40, "name": "再興大空間車庫一樓", "addr": "興隆路三段255巷15之1號", "price": 2980, "agent": "詠.彬", "lat": 24.9931591, "lon": 121.5600955, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28113232%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 41, "name": "靜心採光頂佳", "addr": "景華街216巷11號4樓", "price": 1850, "agent": "馬", "lat": 24.9948463, "lon": 121.5420746, "link": null, "approx": true, "new": false, "key": true, "detail": ""}, {"id": 42, "name": "埔新大器四房一樓+坡平車位", "addr": "埔新街61巷20弄1號", "price": 2880, "agent": "惠閔", "lat": 25.0021165, "lon": 121.6202931, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE3MjY1Mjc4Ng==", "approx": false, "new": false, "key": true, "detail": "屋況好，採光佳，使用空間大好規劃"}, {"id": 44, "name": "裕隆城收租金雞母", "addr": "寶高路120巷6弄2號", "price": 1880, "agent": "棋.邑", "lat": 24.965, "lon": 121.542, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTEyMjkwODA1MA==", "approx": true, "new": false, "key": true, "detail": ""}, {"id": 45, "name": "獨家專任 中正特區樹海邊間四房華廈", "addr": "重慶南路三段1號4樓", "price": 4388, "agent": "邦寧", "lat": 25.0296565, "lon": 121.5154795, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE5NTM1NDI5Mg==", "approx": false, "new": false, "key": true, "detail": "大廈管理員代收垃圾、信件，步行10分鐘可達捷運站"}, {"id": 46, "name": "環狀捷運裝潢方正二樓", "addr": "木柵路二段109巷25弄27號2樓", "price": 1680, "agent": "詠.東", "lat": 24.9901388, "lon": 121.5622539, "link": null, "approx": false, "new": false, "key": true, "detail": ""}, {"id": 47, "name": "再興明亮四房美寓", "addr": "興隆路三段255巷44號地下二層", "price": 1188, "agent": "福.慈", "lat": 24.9921947, "lon": 121.5598959, "link": null, "approx": false, "new": false, "key": true, "detail": ""}, {"id": 48, "name": "大安森林公園*瑞安電梯美妝四房", "addr": "瑞安街71巷2號6樓之7", "price": 3380, "agent": "邦寧", "lat": 25.0280371, "lon": 121.5414399, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE5MTQzOTQ4MQ==", "approx": false, "new": false, "key": true, "detail": "科技大樓站、靜巷美四房，有房屋權狀"}, {"id": 49, "name": "富錦樹境二樓美寓", "addr": "富錦街484號2樓", "price": 3380, "agent": "華", "lat": 25.0608224, "lon": 121.5630361, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTEzMzUyMzg0Ng==", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 50, "name": "國賓高樓層景觀兩房車", "addr": "深坑街3巷25號9樓", "price": 2280, "agent": "蘭", "lat": 25.0021164, "lon": 121.6170427, "link": null, "approx": false, "new": false, "key": true, "detail": ""}, {"id": 51, "name": "北三景觀鼎佳5+6+7", "addr": "北深路三段243巷9弄2號5樓", "price": 1980, "agent": "蘭", "lat": 25.0039373, "lon": 121.5993056, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28113334%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 52, "name": "中正區土地", "addr": "紹興南街18之2號", "price": 3900, "agent": "棋", "lat": 24.9823715, "lon": 121.5629125, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTEyMzE0NTY0Mw==", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 53, "name": "采菊美妝三房雙車位", "addr": "木新路三段88號4樓", "price": 5688, "agent": "閔", "lat": 24.9823715, "lon": 121.5629125, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTEzMzY1ODk2Mg==", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 55, "name": "潤泰美景精裝漂亮二樓", "addr": "景興路153巷14弄2號2樓", "price": 1750, "agent": "詠.彬", "lat": 24.9931412, "lon": 121.545331, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE0MTc1NDY5NQ==", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 56, "name": "獨棟三層挑高4米7精妝透天廠辦", "addr": "新北市五股區中興路二段90號", "price": 4580, "agent": "寧", "lat": 25.0774777, "lon": 121.4604441, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE2MDg0NDYwNQ==", "approx": false, "new": false, "key": true, "detail": "自地自建，丁種建築用地，可工廠登記"}, {"id": 57, "name": "萬芳雙捷運超值金店面", "addr": "辛亥路五段82號", "price": 1730, "agent": "詠.彬", "lat": 24.9988955, "lon": 121.5534545, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28113358%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 58, "name": "裕隆城邊間裝潢3樓美寓", "addr": "寶興路58巷1號3樓", "price": 1398, "agent": "華", "lat": 24.9843779, "lon": 121.5553976, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28113364%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": true, "new": false, "key": true, "detail": ""}, {"id": 59, "name": "萬芳社區｜成家首選低總2房", "addr": "萬安街70號4樓之6", "price": 1498, "agent": "民", "lat": 25.002015, "lon": 121.57154, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28113362%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 60, "name": "未來捷運文學三房車", "addr": "秀明路一段31號5樓", "price": 4350, "agent": "福.慈", "lat": 24.9896614, "lon": 121.5643662, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28113363%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 61, "name": "市府捷運電梯雅居", "addr": "永吉路2號9樓之1", "price": 1880, "agent": "慈", "lat": 25.0455323, "lon": 121.5674913, "link": null, "approx": false, "new": false, "key": true, "detail": ""}, {"id": 62, "name": "蔚藍景觀亮麗小資宅", "addr": "北深路二段2巷6號7樓", "price": 980, "agent": "蘭", "lat": 25.0062441, "lon": 121.6209238, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE0MTAyMjU2OQ==", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 63, "name": "學區樓中樓美寓", "addr": "北深路二段81巷8弄3號3樓", "price": 1420, "agent": "揚", "lat": 25.0030869, "lon": 121.6182399, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28113442%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 64, "name": "帝王山莊置產一樓", "addr": "試院路154巷2弄13之1號", "price": 1580, "agent": "子儀", "lat": 24.9909999, "lon": 121.5472584, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE5MDkxMjQzMw==", "approx": false, "new": false, "key": true, "detail": "鄰近知名世新大學，收租效益高，亦可規劃自住"}, {"id": 65, "name": "捷運透天自地自建傳家宅", "addr": "行政街17巷8號", "price": 5800, "agent": "詠.彬", "lat": 24.9668518, "lon": 121.5429229, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28113471%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 66, "name": "石川水岸景觀廠辦", "addr": "碇坪路一段50-3號2樓", "price": null, "agent": "慈.揚", "lat": 24.9916309, "lon": 121.6556905, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28113639%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 67, "name": "興隆靜巷潛力屋", "addr": "臺北市文山區興隆路二段301巷11弄2號4樓", "price": 2288, "agent": "阿福", "lat": 25.0021735, "lon": 121.5532443, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE1MTIwMDU4Mg==", "approx": false, "new": false, "key": true, "detail": "原始屋況，可裝潢自己想要的房屋，邊間通風。負責人：阿福"}, {"id": 68, "name": "景美邊間明亮美寓", "addr": "景華街82巷7弄20號5樓", "price": 1550, "agent": "福", "lat": 24.9946878, "lon": 121.5460899, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE0MDk0MzUzNw==", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 69, "name": "埔新景觀電梯四房+車位", "addr": "埔新街61巷14號3樓", "price": 2400, "agent": "蘭", "lat": 25.0021346, "lon": 121.6202526, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE0MDUzODkyNQ==", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 70, "name": "忠順美妝三房", "addr": "興隆路四段145巷5樓", "price": 1680, "agent": "馬", "lat": 24.9851175, "lon": 121.5616533, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE0MzYzNTcyMg==", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 71, "name": "荷園機能大套房", "addr": "木柵路三段85巷26號3樓之2", "price": 768, "agent": "詠.彬", "lat": 24.9903981, "lon": 121.5674954, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTExNTcyNTQxNA==", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 72, "name": "獨賣優質景觀二樓", "addr": "翠谷街83巷8號2樓", "price": 850, "agent": "蘭", "lat": 25.0096602, "lon": 121.6281316, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTEzMzYwNjI5Mg==", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 73, "name": "萊茵皇家樓中樓", "addr": "興隆路四段109巷116號8-9樓", "price": 3388, "agent": "雄", "lat": 24.9867961, "lon": 121.5646235, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTEzMTAyMjc4Mg==", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 74, "name": "世新景觀亮麗美妝三房", "addr": "新北市深坑區深南路31號4樓", "price": 1208, "agent": "小蘭", "lat": 25.0105116, "lon": 121.621389, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDEwNTkyNjcxNg", "approx": true, "new": false, "key": true, "detail": "3房2廳1衛 · 建坪29.43坪 · 土坪13.71坪"}, {"id": 75, "name": "木柵公園美裝四房美寓", "addr": "臺北市文山區下崙路33巷14號4樓", "price": 1998, "agent": "邦寧", "lat": 24.9855709, "lon": 121.5583981, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28113634%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": false, "new": false, "key": true, "detail": ""}, {"id": 76, "name": "政大御花園挑高2車位", "addr": "台北市文山區萬壽路75巷16弄12號3樓", "price": 2990, "agent": "李天麟", "lat": 24.986045, "lon": 121.587781, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTEyMTQzMzMyMQ==", "approx": false, "new": true, "key": false, "detail": "63.57坪(主23.09+陽3.13+夾7.78+公設29.57)｜1房2廳2衛/3房1衛(夾層)｜坡平車位2個(9,10號)｜管理費3392元/月(每坪55元)+車位600元｜政大附中學區｜挑高5米6｜車位每個200萬(共2個)"}, {"id": 77, "name": "遠雄晴川絕美帝王豪邸", "addr": "臺北市文山區木柵路三段169巷8號24樓", "price": 5280, "agent": "彬.詠", "lat": 24.9896582, "lon": 121.5689255, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTEzMTQ1OTU2NQ==", "approx": false, "new": true, "key": false, "detail": "建坪64.32坪｜格局0房2廳2衛｜主建29.81·附屬6.5·公設17.96·車位10.05坪｜屋齡1新成屋｜24F·坐南朝北｜坡平車位B5-29號·建物管理費5927/月"}, {"id": 78, "name": "蔚嵐景觀花園大別墅+車庫", "addr": "新北市深坑區北深路二段", "price": 2198, "agent": "小蘭", "lat": 25.0034314, "lon": 121.6172605, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTEyMjM0MDk4Mg==", "approx": true, "new": true, "key": false, "detail": "使用空間大好規劃，商家林立生活機能佳（門牌待補，座標為街道概略位置）"}, {"id": 79, "name": "木柵捷運河景大戶", "addr": "臺北市文山區木柵路四段37號2樓", "price": 4588, "agent": "阿福", "lat": 24.9968404, "lon": 121.5730633, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE0NTgwMDkzNQ==", "approx": true, "new": true, "key": false, "detail": "一層一戶，正面河景，室內挑高4米（門牌待補，座標為街道概略位置）"}, {"id": 80, "name": "七張金店面", "addr": "新北市新店區北新路二段50號", "price": 4880, "agent": "陳耀銘", "lat": 24.9718447, "lon": 121.5431336, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE0NTk1NzY2NQ==", "approx": false, "new": true, "key": false, "detail": "七張捷運站旁金店面，交通便利（門牌待補，座標為街道概略位置）"}, {"id": 82, "name": "台大緣三房雙車位", "addr": "臺北市文山區汀州路四段", "price": 4680, "agent": "李天麟", "lat": 25.0071536, "lon": 121.5369044, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1MDMyOTg3MA==", "approx": true, "new": true, "key": false, "detail": "24小時保全管理、廁所有對外窗、格局方正、雙車位（門牌待補，座標為街道概略位置）"}, {"id": 83, "name": "敦南山林山景別墅", "addr": "臺北市文山區木柵路四段", "price": 4600, "agent": "彭述民", "lat": 24.9968404, "lon": 121.5730633, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE0MzcyMjkyMw==", "approx": true, "new": true, "key": false, "detail": "台北市稀有景觀別墅、超大實坪（門牌待補，座標為街道概略位置）"}, {"id": 84, "name": "萬芳捷運方正精美二樓", "addr": "臺北市文山區萬利街", "price": 1830, "agent": "勝彬、小詠", "lat": 25.0004925, "lon": 121.5654668, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE0MzUwNzQ5MQ==", "approx": true, "new": true, "key": false, "detail": "屋況精美、三面採光、邊間明亮（門牌待補，座標為街道概略位置）"}, {"id": 85, "name": "七張豪景邊間美廈", "addr": "新北市新店區北新路二段", "price": 3680, "agent": "許志芳", "lat": 24.9749083, "lon": 121.5428521, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1MDYzMTU2NA==", "approx": true, "new": true, "key": false, "detail": "邊間採光通風明亮、樓層適中（門牌待補，座標為街道概略位置）"}, {"id": 86, "name": "安華公園車庫一+二樓", "addr": "新北市新店區平等街31號1+2樓", "price": 2778, "agent": "陳瑛琪", "lat": 24.9734997, "lon": 121.536698, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1MDgxOTUyMQ==", "approx": false, "new": true, "key": false, "detail": "近市場、學校、公園、醫院（門牌待補，座標為街道概略位置）"}, {"id": 87, "name": "區公所雅寓", "addr": "新北市新店區華興街42號3樓", "price": 1550, "agent": "房麗蓉", "lat": 24.9691496, "lon": 121.5369979, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1MTAwMDc5Ng==", "approx": false, "new": true, "key": false, "detail": "屋況漂亮、5年前全新整理、拎包即可入住（門牌待補，座標為街道概略位置）"}, {"id": 88, "name": "興隆公園方正頂佳", "addr": "臺北市文山區興隆路二段", "price": 1750, "agent": "勝彬、小詠", "lat": 25.0005901, "lon": 121.5492175, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1MTA1Njg5Ng==", "approx": true, "new": true, "key": false, "detail": "格局方正、天然瓦斯、步行至捷運站約8分鐘（門牌待補，座標為街道概略位置）"}, {"id": 89, "name": "鄉林原創三房豪邸+坡平車位", "addr": "臺北市文山區富山路20號6樓", "price": 4888, "agent": "勝彬、小詠", "lat": 24.9896723, "lon": 121.553447, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1MTE0MjE4NQ==", "approx": false, "new": true, "key": false, "detail": "優質社區、知名建設、邊間大戶、三面採光、坡平車位（門牌待補，座標為街道概略位置）"}, {"id": 90, "name": "捷運新公館", "addr": "新北市新店區中興路三段", "price": 2800, "agent": "陳耀銘", "lat": 24.9817403, "lon": 121.5439215, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1MTMxMjE5MQ==", "approx": true, "new": true, "key": false, "detail": "大坪林捷運站（綠線．黃線），平面稀有車位（門牌待補，座標為街道概略位置）"}, {"id": 91, "name": "埔新街電梯獨立套房", "addr": "新北市深坑區埔新街", "price": 580, "agent": "小陽", "lat": 25.0023014, "lon": 121.6193386, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1MTQwMTA3Nw==", "approx": true, "new": true, "key": false, "detail": "社區24小時警衛管理，生活機能佳，交通便利（門牌待補，座標為街道概略位置）"}, {"id": 92, "name": "Y3未來捷運黃金三樓A", "addr": "臺北市文山區木柵路三段", "price": 1302, "agent": "小詠、勝彬", "lat": 24.9887944, "lon": 121.5680257, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDE4MjYxMjg4Mg", "approx": true, "new": true, "key": false, "detail": "未來環狀捷運增值潛力佳、黃金樓層三樓（門牌待補，座標為街道概略位置）"}, {"id": 93, "name": "Y3未來捷運黃金三樓B", "addr": "臺北市文山區木柵路三段", "price": 1302, "agent": "小詠、勝彬", "lat": 24.9887944, "lon": 121.5680257, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDE4MjgxMTAxMw", "approx": true, "new": true, "key": false, "detail": "未來環狀捷運增值潛力佳、黃金樓層三樓（與#92同棟不同戶，門牌待補）"}, {"id": 94, "name": "大坪林捷運金店面", "addr": "新北市新店區中興路三段", "price": 3880, "agent": "許志芳", "lat": 24.9817403, "lon": 121.5439215, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1MTY0NzQ0Ng==", "approx": true, "new": true, "key": false, "detail": "大坪林捷運站5號出口旁，往家樂福、裕隆城方向（門牌待補，座標為街道概略位置）"}, {"id": 95, "name": "樂高複合式小資首選", "addr": "臺北市文山區興隆路二段251號7樓", "price": 1360, "agent": "詠、勝彬", "lat": 25.0005901, "lon": 121.5492175, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDE4MzA0MzM2Nw", "approx": true, "new": true, "key": false, "detail": "2房1廳1衛(含增建1房) · 建坪15.12坪｜主建7.305·附屬1.491·公設6.325坪｜屋齡7年｜7F/9F·坐北朝南｜複合式3米/4.2米挑高魔術空間｜一層3戶共26戶·步行萬芳醫院捷運約9分"}, {"id": 96, "name": "信義線上稀有溫馨景觀戶", "addr": "新北市深坑區北深路三段", "price": 2680, "agent": "小陽", "lat": 25.0025393, "lon": 121.6039799, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1MTgzNTA0Ng==", "approx": true, "new": true, "key": false, "detail": "24小時警衛管理，公設完善，屋況極佳（門牌待補，座標為街道概略位置）"}, {"id": 97, "name": "南京復興電梯住辦+坡平車位", "addr": "臺北市中山區長安東路二段", "price": 4200, "agent": "許育錚", "lat": 25.0484042, "lon": 121.5365302, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1MTkyMTk4Nw==", "approx": true, "new": true, "key": false, "detail": "南京復興機能核心，電梯住辦，坡平車位（門牌待補，座標為街道概略位置）"}, {"id": 98, "name": "深坑區阿柔坑段王軍寮段~買建地+農地贈送房子", "addr": "新北市深坑區阿柔坑段", "price": 9380, "agent": "小蘭", "lat": 24.983609, "lon": 121.614896, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1MjEyODEzMA==", "approx": true, "new": true, "key": false, "detail": "現地有建物(地上物有契稅單)，現地法定用途說明未完（門牌待補，座標為區域概略位置）"}, {"id": 99, "name": "裕隆城收租套房", "addr": "新北市新店區寶興路", "price": 1380, "agent": "許志芳", "lat": 24.9713254, "lon": 121.5481463, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1Mjg1NjUyNg==", "approx": true, "new": true, "key": false, "detail": "月收租47,000元/月，投報高（門牌待補，座標為街道概略位置）"}, {"id": 100, "name": "Y2A未來捷運傳家金店面", "addr": "臺北市文山區永安街", "price": 1980, "agent": "勝彬、小詠", "lat": 24.986889, "lon": 121.5702528, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1Mjk1NjUzNg==", "approx": true, "new": true, "key": false, "detail": "長輩救星、超大面恐、三面採光、格局方正（門牌待補，座標為街道概略位置）"}, {"id": 101, "name": "鴛鴦蝴蝶3+1房坡平車位", "addr": "新北市新店區北宜路二段", "price": 1650, "agent": "許志芳", "lat": 24.9542688, "lon": 121.5590203, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1MzEwMjQzMg==", "approx": true, "new": true, "key": false, "detail": "鄰近青潭國小(校區右後方)，上課安全又方便（門牌待補，座標為街道概略位置）"}, {"id": 102, "name": "再興捷運收租鼎家四房", "addr": "臺北市文山區興隆路四段", "price": 1398, "agent": "小詠", "lat": 24.9866234, "lon": 121.5608752, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1MzE0ODg4Mg==", "approx": true, "new": true, "key": false, "detail": "步行至捷運萬隆站，近大型五金百貨賣場（門牌待補，座標為街道概略位置）"}, {"id": 103, "name": "雲鄉景觀樓中樓7+8樓", "addr": "新北市深坑區雲鄉路", "price": null, "agent": "", "lat": 24.9989673, "lon": 121.6216042, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTEzNDYwMTE1NA==", "approx": true, "new": true, "key": false, "detail": "使用空間大，適合三代同堂，綠樹環繞（門牌待補，座標為街道概略位置）"}, {"id": 104, "name": "松雲石庭四房+坡平車位", "addr": "臺北市文山區恆光街", "price": 3768, "agent": "小詠", "lat": 24.9821116, "lon": 121.5663522, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1MzMzNzQ1MQ==", "approx": true, "new": true, "key": false, "detail": "超大空間、稀有四房、格局方正、邊間明亮（門牌待補，座標為街道概略位置）"}, {"id": 105, "name": "萬象之都高樓景觀頂客宅", "addr": "臺北市士林區德行西路", "price": 1730, "agent": "勝彬、小詠", "lat": 25.1048564, "lon": 121.5222935, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1MzUxNjczOQ==", "approx": true, "new": true, "key": false, "detail": "亮麗採光、光線通透、通風良好、空間寬闊（門牌待補，座標為街道概略位置）"}, {"id": 106, "name": "羅曼蒂花園大戶樓中樓", "addr": "臺北市文山區木新路三段127巷2號6樓", "price": null, "agent": "勝彬、店長", "lat": 24.9815727, "lon": 121.562061, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTEzNDkxMzIyNw==", "approx": false, "new": true, "key": false, "detail": "稀有釋出、大戶邊間、三面採光、採光明亮。專任委託銷售，負責人：勝彬、店長"}, {"id": 107, "name": "雋藏霸氣典藏豪邸雙車位", "addr": "臺北市文山區政大一街", "price": 6680, "agent": "勝彬、小詠", "lat": 24.9856654, "lon": 121.5840389, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1MzYzMDIwNQ==", "approx": true, "new": true, "key": false, "detail": "一層一戶、戶數單純，隱私性高，華麗裝潢，雙車位（門牌待補，座標為街道概略位置）"}, {"id": 108, "name": "福容大飯店旁稀有廠辦", "addr": "新北市深坑區北深路三段260號5樓", "price": null, "agent": "許政陽", "lat": 25.0044398, "lon": 121.5995495, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTEzNTY1ODA3Ng==", "approx": false, "new": true, "key": false, "detail": "近北二高交流道、信義快速道路，生活機能佳。負責人：許政陽"}, {"id": 109, "name": "保儀公園超值頂家", "addr": "臺北市文山區興隆路四段", "price": null, "agent": "", "lat": 24.9866234, "lon": 121.5608752, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE0MDQwNjA4MA==", "approx": true, "new": true, "key": false, "detail": "可接天然瓦斯、空間好利用、格局方正、通風佳（門牌待補，座標為街道概略位置）"}, {"id": 110, "name": "石碇金鑽臨溪靠山平坦農地", "addr": "新北市石碇區", "price": null, "agent": "", "lat": 24.9914859, "lon": 121.6579019, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE0MDY1MDI4NA==", "approx": true, "new": true, "key": false, "detail": "稀有靠山面溪農地，地勢平坦，近大馬路邊（門牌待補，座標為石碇區中心概略位置）"}, {"id": 111, "name": "實踐超值美三房", "addr": "臺北市文山區辛亥路七段69巷28號4樓", "price": null, "agent": "惠閔(約看)", "lat": 24.9823877, "lon": 121.5547019, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE0MTE1ODE2OQ==", "approx": false, "new": true, "key": false, "detail": "全室開窗、採光明亮，格局方正、通風良好。負責人：惠閔(約看)"}, {"id": 112, "name": "茀來堡魔術空間兩房", "addr": "臺北市文山區萬安街", "price": null, "agent": "", "lat": 25.002015, "lon": 121.57154, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE0Mjc1ODk5NA==", "approx": true, "new": true, "key": false, "detail": "魔術大空間、採光好、社區小型商圈、近公園（門牌待補，座標為街道概略位置）"}, {"id": 113, "name": "美德市捷運兩房平車", "addr": "新北市土城區忠承路", "price": null, "agent": "", "lat": 24.9662827, "lon": 121.439865, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE0MjkyNzM5NQ==", "approx": true, "new": true, "key": false, "detail": "步行至永寧捷運站5分鐘，稀有2房+2平面車位（門牌待補，座標為街道概略位置）"}, {"id": 114, "name": "有水有電的開心農場", "addr": "臺北市文山區老泉路", "price": null, "agent": "", "lat": 24.9780408, "lon": 121.5613604, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE0MzA0ODM0Ng==", "approx": true, "new": true, "key": false, "detail": "往杏花林的路上，真北宮旁的平面土地，有水有電（門牌待補，座標為街道概略位置）"}, {"id": 115, "name": "捷運邊間金店辦+車位", "addr": "臺北市文山區萬芳路60之22號1樓", "price": 3288, "agent": "邦寧", "lat": 24.9985782, "lon": 121.5680598, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE0MzEyNTIyNA==", "approx": false, "new": true, "key": false, "detail": "萬芳社區捷運站旁邊間，室內方正，面寬佳（門牌待補，座標為街道概略位置）"}, {"id": 117, "name": "帝品苑豪邸溫馨三房+平面車位", "addr": "新北市深坑區北深路三段161號9樓", "price": 3280, "agent": "小蘭", "lat": 25.0034402, "lon": 121.6019482, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE0NDUyMDU4Nw==", "approx": false, "new": true, "key": false, "detail": "近東南科技大學、家樂福超市，北深路上有小型商圈，生活機能佳。負責人：小蘭"}, {"id": 116, "name": "雲鄉景觀透天厝十房", "addr": "新北市深坑區雲鄉路118號1-3樓", "price": null, "agent": "小蘭", "lat": 24.9984588, "lon": 121.6226635, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE0MzcxNTg4NQ==", "approx": false, "new": true, "key": false, "detail": "大空間，好規劃，可塑性高，自住、收租兩相宜。負責人：小蘭"}, {"id": 118, "name": "新月雅靜美廈(出租中)", "addr": "新北市板橋區龍泉街90巷22號7樓", "price": 2080, "agent": "大東、Bow", "lat": 25.0249433, "lon": 121.4558611, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE0NDkxMjEwNw==", "approx": false, "new": true, "key": false, "detail": "專任委託銷售，目前出租中。負責人：大東、Bow"}, {"id": 120, "name": "興隆靜巷增值屋", "addr": "臺北市文山區興隆路二段301巷11弄4號4樓", "price": 2188, "agent": "", "lat": 25.0021735, "lon": 121.5532443, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE1MjcwOTkzMw==", "approx": false, "new": true, "key": false, "detail": "原始屋況，可裝潢自己想要的房屋，邊間通風（與#67同巷不同戶：4號 vs 2號）"}, {"id": 121, "name": "興隆靜巷增值屋", "addr": "臺北市文山區興隆路二段301巷11弄4號4樓", "price": 2188, "agent": "阿福", "lat": 25.0021735, "lon": 121.5532443, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE1MjcwOTkzMw==", "approx": false, "new": true, "key": false, "detail": "原始屋況，可裝潢自己想要的房屋，邊間通風。負責人：阿福（與#67同棟不同戶）"}, {"id": 122, "name": "專任北醫書香四房", "addr": "臺北市信義區嘉興街255號5樓", "price": 4280, "agent": "邦寧", "lat": 25.0248831, "lon": 121.5559646, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE1MzU0NjUxNg==", "approx": false, "new": true, "key": false, "detail": "信義大安區稀有一層一戶、電梯四房，隱私性高。專任委託銷售，負責人：邦寧"}, {"id": 123, "name": "鶯歌站前乙工276", "addr": "新北市鶯歌區中山段603地號", "price": 7800, "agent": "邦寧", "lat": 24.9545594, "lon": 121.3551137, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1NTIxMTkzMQ==", "approx": true, "new": true, "key": false, "detail": "乙種工業用地，276坪（地籍段地址，座標為鶯歌車站概略位置，實際地號待現場確認）"}, {"id": 124, "name": "鶯歌東湖丁種廠房工業地", "addr": "新北市鶯歌區中湖街", "price": 21293.5, "agent": "邦寧", "lat": 24.9760732, "lon": 121.3483687, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1NTE0MDAyNg==", "approx": true, "new": true, "key": false, "detail": "丁種工業用地，多種坪數可選擇，有水、電（門牌待補，座標為街道概略位置）"}, {"id": 125, "name": "宜蘭員山獨棟電梯農舍", "addr": "宜蘭縣員山鄉深福路82號", "price": 3380, "agent": "邦寧", "lat": 24.7156038, "lon": 121.7072003, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDIxMDIxNzA0NQ", "approx": false, "new": true, "key": false, "detail": "獨棟電梯農舍｜112年6月完工｜座標概略請確認"}, {"id": 126, "name": "林口AI產專三之二工業地", "addr": "新北市林口區工一工業園區(AI智慧型園區)，新頭湖段地號43", "price": 51500, "agent": "邦寧", "lat": 25.0849083, "lon": 121.3678869, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE3NTIzMDI0OQ==", "approx": true, "new": true, "key": false, "detail": "林口AI智慧型園區產專三之二工業地，負責人：邦寧（地號待補，座標為園區概略位置）"}, {"id": 127, "name": "中正大觀燙金店首選", "addr": "臺北市中正區南昌路一段123號2樓之1", "price": 5500, "agent": "唐邦寧", "lat": 25.0304945, "lon": 121.517861, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE2MjE0MTAwOA==", "approx": false, "new": true, "key": false, "detail": "1房1廳1衛，建坪55.56坪，土坪8.41坪。文山木新加盟店 富華不動產開發有限公司 唐邦寧 0908-694-988"}, {"id": 128, "name": "大安區精品三房+車位", "addr": "臺北市大安區羅斯福路三段261之1號3樓", "price": 5688, "agent": "邦寧", "lat": 25.0189034, "lon": 121.5303693, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE2NTMzNTc0MA==", "approx": false, "new": true, "key": false, "detail": "台電大樓捷運站步行5分鐘，鄰近公館商圈。負責人：邦寧"}, {"id": 129, "name": "長安便利電梯四房", "addr": "新北市蘆洲區長安街280號3樓之2", "price": 2480, "agent": "大東", "lat": 25.0864573, "lon": 121.457549, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE2NTgxNzg5NQ==", "approx": true, "new": true, "key": false, "detail": "成熟便利的生活機能、完整的學區資源。負責人：大東（座標為長安街街道概略位置）"}, {"id": 130, "name": "興隆面寬金店面", "addr": "臺北市文山區興隆路四段189號", "price": 4056, "agent": "大東", "lat": 24.9832751, "lon": 121.562289, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE3MTcxNTIyMQ==", "approx": false, "new": true, "key": false, "detail": "興隆路22米正馬路旁，車水馬龍人潮多。負責人：大東"}, {"id": 131, "name": "廣紘一號星三房", "addr": "臺南市永康區新行街", "price": 1050, "agent": "阿福、店長", "lat": 23.0426403, "lon": 120.242181, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE3MjE0OTcxMA==", "approx": true, "new": true, "key": false, "detail": "三套房穩定收租中，近南應大，生活機能佳。負責人：阿福、店長（門牌待補，座標為街道概略位置）"}, {"id": 132, "name": "廣紘一號星三房", "addr": "臺南市永康區新行街", "price": 1050, "agent": "阿福、店長", "lat": 23.0426403, "lon": 120.242181, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE3MjE0OTcxMA==", "approx": true, "new": true, "key": false, "detail": "三套房穩定收租中，近南應大生活機能佳（門牌待補，座標為街道概略位置）"}, {"id": 133, "name": "NO.1信義線上優質景觀三房+平車", "addr": "新北市深坑區北深路三段246-6號7樓", "price": 2680, "agent": "小蘭", "lat": 25.0042349, "lon": 121.600282, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE3MzAxMzU4Mg==", "approx": false, "new": true, "key": false, "detail": "邊間明亮、三面採光，商家林立。負責人：小蘭（信義線上社區）"}, {"id": 135, "name": "高樓層精緻電梯三房車", "addr": "新北市深坑區埔新街30-1號11樓", "price": 2280, "agent": "小蘭", "lat": 25.0033321, "lon": 121.6207456, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE3MzY0MTQwNg==", "approx": false, "new": true, "key": false, "detail": "埔新帝王戶，坐南朝北，中庭花園，圖畫室。負責人：小蘭"}, {"id": 136, "name": "No.2信義線上優質景觀三房+平車", "addr": "新北市深坑區北深路三段246-6號7樓", "price": 2680, "agent": "小蘭", "lat": 25.0042349, "lon": 121.600282, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE3NDEzOTc3Ng==", "approx": false, "new": true, "key": false, "detail": "邊間明亮、三面採光，商家林立生活機能佳。負責人：小蘭（案名為No.2，地址與#133 No.1相同，待確認是否為不同戶）"}, {"id": 137, "name": "台北好境挑高名邸", "addr": "新北市深坑區埔新街", "price": 2598, "agent": "小蘭", "lat": 25.0023014, "lon": 121.6193386, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1NDc0MTUwNg==", "approx": true, "new": true, "key": false, "detail": "尊榮挑高名邸，6房(室)2廳2衛（門牌待補，座標為街道概略位置）"}, {"id": 138, "name": "台北好境挑高名邸", "addr": "新北市深坑區埔新街28號1樓", "price": 2880, "agent": "小蘭", "lat": 25.0034773, "lon": 121.6208068, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDExMDI1MTI2Ng", "approx": false, "new": true, "key": false, "detail": "6房2廳2衛 · 建坪57.63坪 · 土坪10.66坪"}, {"id": 139, "name": "富山匯兩房車位", "addr": "臺北市文山區富山路7號8樓", "price": 2780, "agent": "店長、勝彬", "lat": 24.988922, "lon": 121.553648, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE3NDY0ODMzMA==", "approx": false, "new": true, "key": false, "detail": "大主臥好規劃，天然瓦斯、IH爐、24小時保全。負責人：店長、勝彬"}, {"id": 140, "name": "北醫綠意邊間四房+車位", "addr": "臺北市信義區吳興街284巷36弄22號3樓", "price": 4850, "agent": "李慈", "lat": 25.0225581, "lon": 121.5627447, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE3NDkzODYyOA==", "approx": false, "new": true, "key": false, "detail": "超低公設，使用空間大，邊間採光一流通風佳。負責人：李慈"}, {"id": 141, "name": "獨門獨院隱仕居所(約看)", "addr": "新北市深坑區翠谷街28號", "price": 6600, "agent": "小陽", "lat": 25.0092338, "lon": 121.6267039, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE3NTU0NDY0NA==", "approx": false, "new": true, "key": false, "detail": "獨棟別墅，獨立大院子，土地大好規劃。負責人：小陽（約看）"}, {"id": 142, "name": "萬芳醫院旁優質收租屋", "addr": "臺北市文山區興隆路三段123之5號5樓", "price": 2280, "agent": "阿福、李慈", "lat": 24.998847, "lon": 121.5584655, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE3NTgwMDM2Mg==", "approx": false, "new": true, "key": false, "detail": "萬芳醫院旁，穩定收租中，房間皆有獨立洗手間。負責人：阿福、李慈"}, {"id": 144, "name": "和風集方正三房+車位", "addr": "臺北市文山區福興路106巷28弄7號5樓之3", "price": 2458, "agent": "哲瑋", "lat": 25.0061922, "lon": 121.5501265, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE4MDA0ODA0Mw==", "approx": false, "new": true, "key": false, "detail": "社區24小時管理，代收垃圾，格局方正。負責人：哲瑋（和風集社區）"}, {"id": 145, "name": "埔新優質一樓", "addr": "新北市深坑區北深路二段81巷23號", "price": 1490, "agent": "小蘭", "lat": 25.0023413, "lon": 121.6188149, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE4MDUyNDQ2OQ==", "approx": false, "new": true, "key": false, "detail": "埔新優質1樓，鄰近埔新商圈。負責人：小蘭"}, {"id": 146, "name": "萬芳捷運美妝三樓", "addr": "臺北市文山區辛亥路五段15號3樓", "price": 1950, "agent": "店長、勝彬", "lat": 25.0001739, "lon": 121.5544227, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE4MTk0NTE2Mw==", "approx": false, "new": true, "key": false, "detail": "全新裝潢，屋況精美，採光明亮。負責人：店長、勝彬"}, {"id": 147, "name": "萬芳捷運美妝三樓(key信箱)", "addr": "臺北市文山區辛亥路五段15號3樓", "price": 1950, "agent": "店長、勝彬", "lat": 25.0001739, "lon": 121.5544227, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE4MTk0NTE2Mw==", "approx": false, "new": true, "key": false, "detail": "全新裝潢，屋況精美，採光明亮。負責人：店長、勝彬"}, {"id": 148, "name": "新店環河美妝宅", "addr": "新北市新店區環河路", "price": 1598, "agent": "子儀", "lat": 24.9735294, "lon": 121.5273199, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE4MjQwOTY5Nw==", "approx": true, "new": true, "key": false, "detail": "鄰近新店市公所、新店捷運站，周遭生活機能佳（門牌待補，座標為街道概略位置）。負責人：子儀"}, {"id": 150, "name": "木新機能優質方正美寓", "addr": "臺北市文山區木新路三段232巷7弄31號4樓", "price": 1498, "agent": "惠閔", "lat": 24.9815618, "lon": 121.5581665, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE4MzE0NDUyOA==", "approx": false, "new": true, "key": false, "detail": "鄰近木新市場、全聯、7-11，步行約2分鐘。負責人：惠閔"}, {"id": 151, "name": "宏普天下坡平車位", "addr": "臺北市文山區樟新街", "price": 250, "agent": "阿福", "lat": 24.9786102, "lon": 121.5554241, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE4MzQyMjY4MA==", "approx": true, "new": true, "key": false, "detail": "坡平好停車，獨立產權（門牌待補，座標為街道概略位置）。負責人：阿福"}, {"id": 152, "name": "文山綠地景觀三房車位(約看)", "addr": "臺北市文山區辛亥路七段69巷25號6樓之1", "price": 2780, "agent": "店長、勝彬", "lat": 24.982538, "lon": 121.555148, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE4MzU1Njg0NQ==", "approx": false, "new": true, "key": false, "detail": "邊間明亮、三面採光，前後陽台。負責人：店長、勝彬（約看）"}, {"id": 153, "name": "恆光傳家金店面", "addr": "臺北市文山區恆光街29號1樓", "price": 5980, "agent": "惠閔", "lat": 24.9829354, "lon": 121.5670072, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE4MjYyMzkwOQ==", "approx": false, "new": true, "key": false, "detail": "邊間三角窗金店面，面寬適合多種行業與用途。負責人：惠閔"}, {"id": 154, "name": "興隆黃金三角窗店面(約看)", "addr": "臺北市文山區興隆路二段222號", "price": 6800, "agent": "惠閔", "lat": 25.0013018, "lon": 121.5527806, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE4NDYyMTkwMw==", "approx": false, "new": true, "key": false, "detail": "黃金路段，三角窗金店面，目前收租穩定。負責人：惠閔（約看）"}, {"id": 155, "name": "萬芳捷運悠靜一樓", "addr": "臺北市文山區萬安街44巷7之1號", "price": 1950, "agent": "惠閔", "lat": 24.9995189, "lon": 121.5709127, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE4NTM0OTA3Mw==", "approx": false, "new": true, "key": false, "detail": "步行至萬芳社區捷運站約4分鐘，交通便利。負責人：惠閔"}, {"id": 156, "name": "木新傳家金店面", "addr": "臺北市文山區木新路三段64號", "price": 5188, "agent": "惠閔", "lat": 24.9825492, "lon": 121.5638125, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE4NTYzODA4OA==", "approx": false, "new": true, "key": false, "detail": "商圈成熟，臨20米大馬路，人來人往車水馬龍。負責人：惠閔"}, {"id": 157, "name": "奢雅品味盡在山嵐(約看)", "addr": "臺北市文山區木新路三段95巷7弄6號4樓", "price": 8580, "agent": "惠閔", "lat": 24.9814591, "lon": 121.5633866, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE4NTg1OTM0NQ==", "approx": false, "new": true, "key": false, "detail": "知名建設嘉磐力作，李天鐸大師建築規劃。負責人：惠閔（約看）"}, {"id": 158, "name": "北醫世貿公園景觀三房", "addr": "臺北市信義區吳興街284巷9弄10號5樓", "price": 2050, "agent": "小蘭", "lat": 25.0250231, "lon": 121.5643527, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE5MDQwNjE2NQ==", "approx": false, "new": true, "key": false, "detail": "鄰近臺北醫學大學附設醫院，格局方正邊間。負責人：小蘭"}, {"id": 159, "name": "考試院大透天", "addr": "臺北市文山區試院路", "price": 3380, "agent": "游子儀", "lat": 24.9889038, "lon": 121.5482732, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE5MDYyMzU1MA==", "approx": true, "new": true, "key": false, "detail": "收租穩定好管理，鄰近世新大學、未來捷運（門牌待補，座標為街道概略位置）。負責人：游子儀"}, {"id": 160, "name": "喜砌明亮大露台兩房+車位", "addr": "新北市深坑區北深路二段139-1號2樓", "price": 1888, "agent": "小蘭", "lat": 25.0022908, "lon": 121.6146843, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE5MTAyMzUxNg==", "approx": false, "new": true, "key": false, "detail": "喜砌電梯大露台兩房，稀有物件附平面大車位。負責人：小蘭"}, {"id": 161, "name": "喜砌明亮大露台兩房+車位(約看)", "addr": "新北市深坑區北深路二段139-1號2樓", "price": 1888, "agent": "小蘭", "lat": 25.0022908, "lon": 121.6146843, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE5MTAyMzUxNg==", "approx": false, "new": true, "key": false, "detail": "喜砌電梯大露台兩房，稀有物件附平面大車位。負責人：小蘭（約看）"}, {"id": 162, "name": "風雅頌河堤一樓+平車位(key警衛室)", "addr": "臺北市文山區木新路三段95巷18號1樓", "price": 3368, "agent": "小蘭", "lat": 24.9811866, "lon": 121.5630175, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE5MTIzNjgwOA==", "approx": false, "new": true, "key": false, "detail": "河堤庭院風雅頌社區，邊間一樓進出方便。負責人：小蘭"}, {"id": 163, "name": "忠順黃金雙店面", "addr": "臺北市文山區忠順街二段49號", "price": 3080, "agent": "惠閔", "lat": 24.9850059, "lon": 121.5640992, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE5MzQ0ODQ3Nw==", "approx": false, "new": true, "key": false, "detail": "雙店面出租，正面大馬路，現況穩定收租抗通膨。負責人：惠閔"}, {"id": 164, "name": "忠順黃金雙店面(出租中)", "addr": "臺北市文山區忠順街二段49號", "price": 3080, "agent": "惠閔", "lat": 24.9850059, "lon": 121.5640992, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE5MzQ0ODQ3Nw==", "approx": false, "new": true, "key": false, "detail": "雙店面出租，正面大馬路，現況穩定收租抗性低。負責人：惠閔"}, {"id": 165, "name": "文化學區頂佳收租屋(約看)", "addr": "新北市深坑區文化街82號5樓", "price": 1200, "agent": "小陽", "lat": 25.0020826, "lon": 121.6178887, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE5MzcxNTQ2MA==", "approx": false, "new": true, "key": false, "detail": "生活機能強，交通便利，近學區，收租穩定。負責人：小陽（約看）"}, {"id": 166, "name": "新象社區大空間美寓頂佳(約看)", "addr": "新北市深坑區北深路二段55巷11弄6號5樓", "price": 1298, "agent": "小陽", "lat": 25.0030138, "lon": 121.6193129, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE5Mzg1NTgxNA==", "approx": false, "new": true, "key": false, "detail": "稀有社區型管理公寓，近公車站牌，生活機能佳。負責人：小陽（約看）"}, {"id": 167, "name": "學區金雞母頂佳收租屋", "addr": "新北市深坑區北深路三段189巷10弄15號4樓", "price": 1368, "agent": "小陽", "lat": 25.003077, "lon": 121.6001504, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE5NTAwOTE1MA==", "approx": false, "new": true, "key": false, "detail": "生活機能強、交通便利，近信義財貿科技園區。負責人：小陽"}, {"id": 168, "name": "學區邊間樓中樓頂佳收租屋", "addr": "新北市深坑區北深路二段81巷8弄1號3樓", "price": 1880, "agent": "小陽", "lat": 25.0031034, "lon": 121.6182732, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE5NTIxODg4Ng==", "approx": false, "new": true, "key": false, "detail": "稀有大坪數樓中樓收租屋，邊間採光通風佳。負責人：小陽（與#63同巷弄不同門牌）"}, {"id": 169, "name": "福容鼎佳收租屋4+5", "addr": "新北市深坑區北深路三段243巷8號4樓", "price": 1500, "agent": "小蘭", "lat": 25.0040024, "lon": 121.5992539, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE5NTY0MTEyNg==", "approx": false, "new": true, "key": false, "detail": "近順意五金百貨、假日飯店、福容飯店。負責人：小蘭（鼎佳社區，與#51同區不同戶）"}, {"id": 170, "name": "學區溫馨美頂佳", "addr": "新北市深坑區北深路二段55巷12弄9號4樓", "price": 1580, "agent": "小陽", "lat": 25.0029476, "lon": 121.6189432, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTE5NTgxNTU5Mw==", "approx": false, "new": true, "key": false, "detail": "近學區、深坑老街，生活機能佳，交通便利。負責人：小陽"}, {"id": 171, "name": "石碇雙溪段土地", "addr": "新北市石碇區雙溪段", "price": 1300, "agent": "小蘭", "lat": 24.9914859, "lon": 121.6579019, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTIwMDAwMTkyOQ==", "approx": true, "new": true, "key": false, "detail": "位於石碇區山林間的靜謐角落，總坪733坪（地號待補，座標為石碇區中心概略位置）。負責人：小蘭"}, {"id": 172, "name": "台電捷運角窗雙層金店面", "addr": "臺北市中正區羅斯福路三段168號", "price": 24300, "agent": "唐邦寧", "lat": 25.0200005, "lon": 121.5285858, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTIwMDExMjYwMw==", "approx": false, "new": true, "key": false, "detail": "台大OPUS ONE，位於台電大樓捷運站角窗雙層店面。負責人：唐邦寧"}, {"id": 173, "name": "青耘頂上套房望公園", "addr": "臺北市文山區辛亥路七段20巷B戶14樓", "price": 1498, "agent": "哲瑋", "lat": 24.9866549, "lon": 121.5538592, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTIwMDIzOTkxNg==", "approx": true, "new": true, "key": false, "detail": "距離未來捷運南環線Y4站(考試院)約4分鐘（座標為巷口概略位置）。"}, {"id": 175, "name": "萬芳醫院捷運金店面", "addr": "臺北市文山區興隆路三段135、137號", "price": 16800, "agent": "小華", "lat": 24.9985008, "lon": 121.5586522, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTIwMDYxMzMzNQ==", "approx": false, "new": true, "key": false, "detail": "文山區熱門商圈，萬芳醫院捷運站旁，交通便利。負責人：小華"}, {"id": 176, "name": "萬芳醫院捷運金店面(約看)", "addr": "臺北市文山區興隆路三段135、137號", "price": 16800, "agent": "小華", "lat": 24.9985008, "lon": 121.5586522, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDcyNTIwMDYxMzMzNQ==", "approx": false, "new": true, "key": false, "detail": "文山區熱門商圈，萬芳醫院捷運站旁，交通便利。負責人：小華（約看）"}, {"id": 177, "name": "萬芳捷運大庭院一樓", "addr": "臺北市文山區興隆路三段185巷3弄3號1樓", "price": 1690, "agent": "勝彬、小詠", "lat": 24.9957696, "lon": 121.5607353, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDExMDQwMjIzMQ", "approx": false, "new": true, "key": true, "detail": "2房2廳1衛 · 建坪25.87坪 · 土坪7.86坪"}, {"id": 178, "name": "馥麗第四房車位", "addr": "臺北市文山區景後街99號2樓", "price": 5368, "agent": "李天麟", "lat": 24.9914522, "lon": 121.5427134, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDE4MzYyOTE2MA", "approx": false, "new": true, "key": false, "detail": "景美生活圈，愛買、全聯、市場、夜市生活機能完善。負責人：李天麟"}, {"id": 179, "name": "政大杉林溪三房雙車", "addr": "臺北市文山區指南路三段52號3樓之1", "price": 2998, "agent": "小馬", "lat": 24.9821288, "lon": 121.5805931, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1NDY1OTY0Mw==", "approx": false, "new": true, "key": false, "detail": ""}, {"id": 187, "name": "萬芳黃金三樓", "addr": "臺北市文山區萬安街93號3樓", "price": 2590, "agent": "福、VIVI", "lat": 24.9996798, "lon": 121.5716868, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDEwNTgxMDk2MQ", "approx": true, "new": true, "key": false, "detail": "4房2廳2衛 · 建坪43.68坪｜主建34.58坪·附屬4.13坪·公設4.97坪｜管理費500/月｜3樓｜近萬芳社區、優質學區"}, {"id": 188, "name": "元利商城時尚精美一樓", "addr": "臺北市文山區光輝路70號1樓", "price": 3280, "agent": "勝彬、小詠", "lat": 24.9843779, "lon": 121.5553976, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgwNTE1NDUzOTU5OA==", "approx": false, "new": true, "key": false, "detail": "39.1坪（主31.2、附4.85、公3.05）、土地10.86坪，3房2廳2衛，坐西朝東，1樓。精美裝潢即可入住，獨立車庫（室內可停賓士GLC）、前後採光，棟距寬敞通風良好，天然瓦斯、雙套衛浴，靜巷8米路寬。步行木新市場／全聯約7分、Y4未來捷運約9分，鄰星巴克、麥當勞、裕隆城。學區：實踐國小、實踐國中、景美女中。"}, {"id": 189, "name": "香榭華城電梯景觀三房", "addr": "新北市深坑區文化街39巷15號13樓", "price": 1380, "agent": "小陽", "lat": 25.0007753, "lon": 121.6190504, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDEwNTg1NjcxNQ", "approx": true, "new": true, "key": true, "detail": "3房1廳1衛 · 建坪27.74坪 · 土坪4.47坪"}, {"id": 190, "name": "中正機能低總美三樓", "addr": "新北市新店區平等街3號3樓", "price": 1298, "agent": "彬、詠", "lat": 24.9734101, "lon": 121.5364952, "link": null, "approx": true, "new": true, "key": false, "detail": "精華地段機能無敵・稀有產品置產首選。建坪25.05坪（主建22.13、附屬2.92），格局3房2廳2衛，3樓，坐東南朝西北，屋齡49年，雙套衛浴，漂亮裝潢即可入住、鬧中取靜。步行星巴克約2分、麥當勞3分、仁愛市場5分、耕莘醫院5分、全聯6分。近七張／小碧潭／央北重劃／區公所商圈。學區：中正國小、五峰國中、新店高中。"}, {"id": 191, "name": "敦南麗舍裝潢小豪宅+車位", "addr": "臺北市大安區敦化南路一段177巷45號12樓之1", "price": 2788, "agent": "詠、大東", "lat": 25.0430246, "lon": 121.5507951, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28113652%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": true, "new": true, "key": false, "detail": "坪數19.38坪（主建6.337、附屬1.327、公設4.342、車位7.38），屋齡0.6年，格局1房1廳1衛，坐北朝南，樓層12/12樓，車位12號塔式車位。全新落成、小豪宅規格，步行至捷運忠孝敦化站約190公尺3分鐘，台北市蛋黃區明星學區。垃圾集中處理在B1，管理員12小時（早6-晚6），目前管委會尚未成立，暫不用繳管理費。（約看）"}, {"id": 192, "name": "紅葉山莊溫馨景觀透天厝", "addr": "新北市深坑區紅葉街19巷26號", "price": 1390, "agent": "小蘭", "lat": 25.0125071, "lon": 121.6330686, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDEwNTY1MTUxNw", "approx": true, "new": true, "key": true, "detail": "2房2廳2衛 · 建坪29.99坪 · 土坪43.55坪"}, {"id": 193, "name": "中和捷運高樓101景觀兩房", "addr": "新北市中和區成功路129號17樓", "price": 1750, "agent": "邦寧", "lat": 24.9905894, "lon": 121.5263996, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28113669%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": false, "new": true, "key": false, "detail": "2房2廳1衛 · 建坪27.25坪｜主建17.01·附屬2.93·公設7.31坪｜無車位｜屋齡30·17F·坐南朝北｜雙陽台三面採光·正面101景觀｜力霸山河鋼骨·秀朗捷運2分｜現租月租2.8萬"}, {"id": 194, "name": "獨賣學區優質一樓+車位", "addr": "新北市深坑區深坑街3巷15號1樓", "price": 1920, "agent": "小蘭", "lat": 25.0023469, "lon": 121.6167741, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDExMDMwMTMyNA", "approx": true, "new": true, "key": false, "detail": "5房2廳3衛 · 建坪62.09坪 · 土坪11.63坪｜主建46.91坪·附屬3.24坪·公設11.94坪｜屋齡31年｜B2機械車位·座東朝西｜1F/6F｜埔新商圈近學區·9小時管理"}, {"id": 195, "name": "靜心首選大面寬一樓", "addr": "", "price": 2280, "agent": "", "lat": 24.9958511, "lon": 121.5504836, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDExMDExMTk3NA", "approx": true, "new": true, "key": false, "detail": "3房2廳2衛 · 建坪27.63坪 · 土坪8.62坪"}, {"id": 196, "name": "力行邊間方正美三房", "addr": "", "price": 1880, "agent": "", "lat": 24.9823715, "lon": 121.5629125, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDExMDAwODU1NA", "approx": true, "new": true, "key": false, "detail": "3房2廳2衛 · 建坪35.95坪 · 土坪12.48坪"}, {"id": 197, "name": "翠谷優質電梯四房+車位", "addr": "", "price": 1198, "agent": "", "lat": 25.008874, "lon": 121.626813, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDEwNTcxNDU4Ng", "approx": true, "new": true, "key": false, "detail": "4房2廳2衛 · 建坪42.1坪 · 土坪12.75坪"}, {"id": 198, "name": "木柵公園美裝三房美寓", "addr": "臺北市文山區下崙路", "price": null, "agent": "", "lat": 24.9864008, "lon": 121.5592894, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDE4MTE0OTc5Ng", "approx": true, "new": true, "key": false, "detail": "4房2廳2衛 · 建坪34.42坪 · 土坪8.53坪"}, {"id": 199, "name": "木新三樓", "addr": "臺北市文山區木新路二段223號3樓", "price": 1800, "agent": "", "lat": 24.9895, "lon": 121.5585, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDEwNTUzMDIyMg", "approx": true, "new": true, "key": false, "detail": "3房2廳1衛 · 建坪26.49坪 · 土坪7.87坪｜主建24.73·附屬1.76坪｜屋齡47.1年｜3樓｜自住(約看)·專約"}, {"id": 200, "name": "木新河堤方正三房", "addr": "", "price": 2226, "agent": "", "lat": 24.9818885, "lon": 121.566591, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDEwNTYwMTUzNw", "approx": true, "new": true, "key": false, "detail": "3房2廳2衛 · 建坪39.89坪 · 土坪13.42坪"}, {"id": 201, "name": "木新商圈裝潢美美二樓", "addr": "臺北市文山區木新路三段232巷6弄7號2樓", "price": 1820, "agent": "閔", "lat": 24.9824449, "lon": 121.563945, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDE4MjEzMTE0NQ", "approx": true, "new": true, "key": false, "detail": "3房2廳1衛 · 建坪28.26坪｜主建25.03·附屬3.23坪｜屋齡52年｜2F/4F·坐北朝南｜邊間3面採光·10米巷寬｜精美裝潢管線全更新·近木新市場全聯｜樓下攤租每3月約5千·自住約看"}, {"id": 202, "name": "中和景平捷運一樓+20坪建地", "addr": "新北市中和區景平路", "price": 2988, "agent": "陳瑛棋", "lat": 24.9923579, "lon": 121.5155696, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDE4MjQzMTA1Ng", "approx": true, "new": true, "key": false, "detail": "建坪30.63坪 · 土坪30坪｜一樓+20坪建地｜建物權狀30.63坪·土地約30坪｜光土地價值遠超開價·歡迎帶投客出價"}, {"id": 203, "name": "埔新街電梯兩房", "addr": "新北市深坑區埔新街6號5樓", "price": 1098, "agent": "小蘭", "lat": 25.0023014, "lon": 121.6193386, "link": null, "approx": true, "new": true, "key": false, "detail": "2房1廳1衛 · 建坪27.43坪｜主建19.05坪·附屬3.39坪·公設4.98坪｜屋齡31年｜5F/7F｜三面採光邊間·前後陽台｜埔新街商圈近深坑國中小"}, {"id": 204, "name": "公園旁景觀亮麗3房", "addr": "新北市深坑區平埔街9巷2號4樓", "price": 990, "agent": "小蘭", "lat": 25.0008, "lon": 121.614, "link": null, "approx": true, "new": true, "key": false, "detail": "3房2廳2衛 · 建坪32.64坪｜主建29.89·附屬2.75坪｜屋齡37年｜4F｜三面採光邊間·前後陽台｜近深坑國中小"}, {"id": 205, "name": "北深路二段亮麗3房", "addr": "新北市深坑區北深路二段81巷10號3樓", "price": 850, "agent": "小蘭", "lat": 25.0023504, "lon": 121.6150972, "link": null, "approx": true, "new": true, "key": false, "detail": "3房1廳1衛 · 建坪24.09坪｜主建24.09坪｜屋齡46年｜3F/4F｜三面採光邊間·前後陽台｜近深坑國中小"}, {"id": 206, "name": "新店後街建地", "addr": "新北市新店區後街46號", "price": 2058, "agent": "", "lat": 24.9688, "lon": 121.5402, "link": null, "approx": true, "new": true, "key": false, "detail": "建地·地坪25.6坪·單價約80萬/坪"}, {"id": 207, "name": "信義千萬公寓四佳", "addr": "臺北市信義區松山路656巷5號4樓", "price": 1338, "agent": "李天麟", "lat": 25.0298, "lon": 121.5772, "link": null, "approx": true, "new": true, "key": false, "detail": "建坪29.11坪 · 土坪12.91坪｜主建15.56·附屬2.09·公設11.46坪·土地12.91坪(住二)｜屋齡49.7年｜4F/4F"}, {"id": 208, "name": "金山四萬坪低於公告現值休閒農牧用地", "addr": "新北市金山區頂角段竹子山腳小段(地號0065-0000)", "price": 1168, "agent": "邦寧", "lat": 25.205, "lon": 121.583, "link": "https://ab.cthousing.com.tw/EDM/ObjectDetail/NjI5NjMyMDI2MDgyMDIwNTQyNzI4Mw", "approx": true, "new": true, "key": false, "detail": "約4萬坪·休閒農牧用地·低於公告現值｜地號:頂角段竹子山腳小段0065-0000｜陽明山國家公園計畫範圍｜座標概略請確認"}, {"id": 209, "name": "木新機能二樓", "addr": "臺北市文山區興隆路四段171號2樓", "price": 1168, "agent": "邦寧", "lat": 24.9866234, "lon": 121.5608752, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28113655%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": true, "new": true, "key": false, "detail": "3房2廳1衛 · 建坪23.07坪｜主建21.913·附屬1.156坪·一陽台｜屋齡48·2F/5F·坐東朝西"}, {"id": 210, "name": "凱悅飯店共構二房平移車", "addr": "高雄市鼓山區明誠四路(美術1號院)", "price": 1198, "agent": "邦寧", "lat": 22.665, "lon": 120.3, "link": "http://house88.8585.com.tw/index.php/add_edm/?&webtype=out&allid=%28113569%28-&sDt=8585house_apac047&logo=1455417121477.jpg&em01=00046", "approx": true, "new": true, "key": false, "detail": "凱悅飯店共構·二房+平面車位｜美術館特區｜座標概略請確認"}];
+
+const map = L.map('map', {{ zoomControl: true }}).setView([24.995, 121.565], 13);
+L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
+  maxZoom: 19,
+  attribution: '&copy; OpenStreetMap contributors'
+}}).addTo(map);
+
+function makeIcon(item){{
+  const color = item.new ? '#3f6b5c' : '#b6842c';
+  const ring = item.approx ? '#a4462f' : color;
+  const keyBadge = item.key ? `<div style="
+        position:absolute;top:-6px;right:-7px;
+        width:16px;height:16px;border-radius:50%;
+        background:#fff;border:1px solid #b6842c;
+        display:flex;align-items:center;justify-content:center;
+        font-size:9px;line-height:1;box-shadow:0 1px 2px rgba(0,0,0,.3);z-index:5;
+      ">🔑</div>` : '';
+  return L.divIcon({{
+    className: '',
+    html: `<div style="position:relative;width:26px;height:26px;">
+      <div style="
+        width:26px;height:26px;border-radius:50% 50% 50% 0;
+        background:${{color}};
+        border:2px solid ${{ring}};
+        transform:rotate(-45deg);
+        box-shadow:0 2px 4px rgba(0,0,0,.35);
+        display:flex;align-items:center;justify-content:center;
+      ">
+      <span style="
+        transform:rotate(45deg);
+        color:#fff;font-size:10px;font-weight:700;font-family:'Noto Sans TC',sans-serif;
+      ">${{item.id}}</span>
+      </div>${{keyBadge}}
+    </div>`,
+    iconSize:[26,26],
+    iconAnchor:[13,26],
+    popupAnchor:[0,-24]
+  }});
+}}
+
+const markers = {{}};
+const bounds = [];
+
+DATA.forEach(item => {{
+  const marker = L.marker([item.lat, item.lon], {{ icon: makeIcon(item) }}).addTo(map);
+  const priceText = item.price ? `總價 ${{item.price}} 萬` : '售價未標示';
+  const agentText = item.agent ? `承辦 ${{item.agent}}` : '';
+  let html = `<div class="popup-name">${{item.id}}. ${{item.name}}</div>`;
+  html += `<div class="popup-addr">${{item.addr || ''}}</div>`;
+  html += `<div class="popup-row"><strong>${{priceText}}</strong>${{agentText ? ' ｜ ' + agentText : ''}}</div>`;
+  if(item.key){{ html += `<div class="popup-row" style="color:#8a5a12;font-weight:700;">🔑 本店有鑰匙，可即時帶看</div>`; }}
+  if(item.detail){{ html += `<div class="popup-detail">${{item.detail}}</div>`; }}
+  if(item.approx){{ html += `<div class="popup-row" style="color:#a4462f;">⚠ 座標為概略位置，門牌待補</div>`; }}
+  if(item.link){{ html += `<a class="popup-link" href="${{item.link}}" target="_blank" rel="noopener">查看詳情 →</a>`; }}
+  marker.bindPopup(html, {{ maxWidth: 280 }});
+  markers[item.id] = marker;
+  bounds.push([item.lat, item.lon]);
+}});
+
+if(bounds.length){{ map.fitBounds(bounds, {{ padding: [30,30] }}); }}
+
+let activeFilter = 'all';
+let searchTerm = '';
+let priceRange = 'all';
+
+function passesFilter(item){{
+  if(activeFilter === 'new' && !item.new) return false;
+  if(activeFilter === 'link' && !item.link) return false;
+  if(activeFilter === 'key' && !item.key) return false;
+  if(priceRange !== 'all'){{
+    const p = item.price;
+    if(p === null || p === undefined || p === '') return false;
+    const [lo, hi] = priceRange.split('-');
+    if(lo && p < Number(lo)) return false;
+    if(hi && p >= Number(hi)) return false;
+  }}
+  if(searchTerm){{
+    const hay = (item.name + ' ' + item.addr + ' ' + (item.agent||'') + (item.key ? ' 有鑰匙 key 鑰匙' : '')).toLowerCase();
+    if(!hay.includes(searchTerm)) return false;
+  }}
+  return true;
+}}
+
+function renderList(){{
+  const list = document.getElementById('list');
+  const filtered = DATA.filter(passesFilter);
+  document.getElementById('countBadge').textContent = `共 ${{DATA.length}} 筆・🔑 ${{DATA.filter(d=>d.key).length}} 筆有鑰匙・顯示 ${{filtered.length}} 筆`;
+
+  DATA.forEach(item => {{
+    const m = markers[item.id];
+    if(!m) return;
+    if(passesFilter(item)){{ if(!map.hasLayer(m)) m.addTo(map); }}
+    else if(map.hasLayer(m)){{ map.removeLayer(m); }}
+  }});
+
+  if(filtered.length === 0){{
+    list.innerHTML = '<div class="empty-state">沒有符合條件的物件</div>';
+    return;
+  }}
+
+  list.innerHTML = filtered.map(item => {{
+    const priceText = item.price ? `${{item.price}}萬` : '售價未標示';
+    let tags = '';
+    if(item.key) tags += '<span class="tag key">🔑 有鑰匙</span>';
+    if(item.new) tags += '<span class="tag new">新增</span>';
+    if(item.link) tags += '<span class="tag link">有連結</span>';
+    if(item.approx) tags += '<span class="tag approx">座標概略</span>';
+    return `<div class="item" data-id="${{item.id}}">
+      <div class="item-top">
+        <div class="item-name"><span class="num">#${{item.id}}</span>${{item.name}}</div>
+        <div class="item-price">${{priceText}}</div>
+      </div>
+      <div class="item-addr">${{item.addr || ''}}${{item.agent ? ' ｜ 承辦 ' + item.agent : ''}}</div>
+      <div class="item-tags">${{tags}}</div>
+    </div>`;
+  }}).join('');
+
+  list.querySelectorAll('.item').forEach(el => {{
+    el.addEventListener('click', () => {{
+      const id = parseInt(el.dataset.id, 10);
+      const item = DATA.find(d => d.id === id);
+      if(!item) return;
+      map.setView([item.lat, item.lon], 17, {{ animate: true }});
+      markers[id].openPopup();
+      document.querySelectorAll('.item').forEach(x => x.classList.remove('selected'));
+      el.classList.add('selected');
+    }});
+  }});
+}}
+
+document.getElementById('searchInput').addEventListener('input', (e) => {{
+  searchTerm = e.target.value.trim().toLowerCase();
+  renderList();
+}});
+
+document.querySelectorAll('.chip').forEach(chip => {{
+  chip.addEventListener('click', () => {{
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeFilter = chip.dataset.filter;
+    renderList();
+  }});
+}});
+
+document.getElementById('priceRange').addEventListener('change', (e) => {{
+  priceRange = e.target.value;
+  e.target.classList.toggle('active', priceRange !== 'all');
+  renderList();
+}});
+
+renderList();
+</script>
+</body>
+</html>
+"""
+
+with open("index.html", "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+print("Generated clean index.html successfully!")
+}请恕我爱莫能助，我只是一个语言模型，不能理解或回复你的这个问题。
