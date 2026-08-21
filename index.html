@@ -1,476 +1,460 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-<html>
+  import pandas as pd
+import json
+
+# Read the excel file
+df = pd.read_excel('中信房屋文山木新店_物件資料庫.xlsx', skiprows=3)
+
+data_list = []
+for _, row in df.iterrows():
+    price_val = row["總價 (萬元)"]
+    if pd.isna(price_val) or str(price_val).strip() == "":
+        p = None
+    else:
+        try:
+            p = int(price_val) if float(price_val) == int(price_val) else float(price_val)
+        except:
+            p = None
+            
+    item = {
+        "id": int(row["編號 (ID)"]),
+        "name": str(row["案名 (Name)"]),
+        "addr": "" if pd.isna(row["地址 (Address)"]) else str(row["地址 (Address)"]),
+        "price": p,
+        "agent": "" if pd.isna(row["承辦人 (Agent)"]) else str(row["承辦人 (Agent)"]),
+        "lat": float(row["緯度 (Lat)"]),
+        "lon": float(row["經度 (Lon)"]),
+        "link": None if pd.isna(row["物件詳情網址 (Link)"]) else str(row["物件詳情網址 (Link)"]),
+        "approx": True if row["座標概略 (Approx)"] == "概略" else False,
+        "new": True if "是" in str(row["新增物件 (New)"]) else False,
+        "key": True if "是" in str(row["本店鑰匙 (Key)"]) else False,
+        "detail": "" if pd.isna(row["詳細描述 (Detail)"]) else str(row["詳細描述 (Detail)"])
+    }
+    data_list.append(item)
+
+json_data_str = json.dumps(data_list, ensure_ascii=False)
+
+html_code = """<!DOCTYPE html>
+<html lang="zh-Hant">
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <meta http-equiv="Content-Style-Type" content="text/css">
-  <title></title>
-  <meta name="Generator" content="Cocoa HTML Writer">
-  <meta name="CocoaVersion" content="2685.6">
-  <style type="text/css">
-    body {background-color: #f1eee2}
-    span.s1 {font-kerning: none}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中信房屋文山木新店 ｜ 物件總表地圖</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16302c;
+    --ink-soft:#294844;
+    --paper:#f4f1e8;
+    --paper-panel:#ffffff;
+    --brass:#b6842c;
+    --brass-soft:#e8c98a;
+    --moss:#3f6b5c;
+    --line:#dcd6c4;
+    --text:#20211d;
+    --text-dim:#6a6f63;
+    --danger:#a4462f;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:'Noto Sans TC', system-ui, sans-serif;
+    background:var(--paper);
+    color:var(--text);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  header{
+    background:var(--ink);
+    color:#f4f1e8;
+    padding:14px 22px;
+    display:flex;
+    align-items:baseline;
+    gap:14px;
+    flex-wrap:wrap;
+    border-bottom:3px solid var(--brass);
+    z-index:20;
+  }
+  header h1{
+    font-family:'Noto Serif TC', serif;
+    font-weight:700;
+    font-size:19px;
+    margin:0;
+    letter-spacing:.5px;
+  }
+  header .sub{
+    font-size:12.5px;
+    color:#cfd8c9;
+    opacity:.85;
+  }
+  header .count{
+    margin-left:auto;
+    font-size:12.5px;
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.18);
+    padding:4px 10px;
+    border-radius:20px;
+  }
+  .layout{
+    flex:1;
+    display:flex;
+    min-height:0;
+  }
+  #sidebar{
+    width:340px;
+    min-width:340px;
+    background:var(--paper-panel);
+    border-right:1px solid var(--line);
+    display:flex;
+    flex-direction:column;
+    z-index:10;
+  }
+  .search-box{
+    padding:12px;
+    border-bottom:1px solid var(--line);
+  }
+  .search-box input{
+    width:100%;
+    padding:9px 12px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-size:13.5px;
+    font-family:inherit;
+    background:var(--paper);
+    color:var(--text);
+  }
+  .search-box input:focus{
+    outline:2px solid var(--brass);
+    outline-offset:1px;
+  }
+  .filters{
+    display:flex;
+    gap:6px;
+    padding:0 12px 10px;
+    flex-wrap:wrap;
+  }
+  .chip{
+    font-size:11.5px;
+    padding:4px 10px;
+    border-radius:20px;
+    border:1px solid var(--line);
+    background:var(--paper);
+    cursor:pointer;
+    color:var(--text-dim);
+    user-select:none;
+  }
+  .chip.active{
+    background:var(--ink);
+    color:#fff;
+    border-color:var(--ink);
+  }
+  .price-select{
+    font-size:11.5px;
+    padding:4px 8px;
+    border-radius:20px;
+    border:1px solid var(--line);
+    background:var(--paper);
+    color:var(--text-dim);
+    cursor:pointer;
+    font-family:inherit;
+  }
+  .price-select:focus{ outline:2px solid var(--brass); outline-offset:1px; }
+  .price-select.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  #list{
+    flex:1;
+    overflow-y:auto;
+  }
+  .item{
+    padding:11px 14px;
+    border-bottom:1px solid var(--line);
+    cursor:pointer;
+    transition:background .12s ease;
+  }
+  .item:hover{ background:#faf7ee; }
+  .item.selected{ background:#f0ead4; border-left:3px solid var(--brass); padding-left:11px; }
+  .item-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap:8px;
+  }
+  .item-name{
+    font-size:13.5px;
+    font-weight:600;
+    line-height:1.35;
+  }
+  .item-name .num{
+    color:var(--brass);
+    font-family:'Noto Serif TC',serif;
+    font-weight:700;
+    margin-right:4px;
+  }
+  .item-price{
+    font-size:12.5px;
+    color:var(--moss);
+    font-weight:700;
+    white-space:nowrap;
+  }
+  .item-addr{
+    font-size:11.5px;
+    color:var(--text-dim);
+    margin-top:3px;
+  }
+  .item-tags{
+    margin-top:6px;
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+  }
+  .tag{
+    font-size:10.5px;
+    padding:2px 7px;
+    border-radius:4px;
+    background:#eee7d3;
+    color:var(--ink-soft);
+  }
+  .tag.new{ background:#dceee2; color:var(--moss); }
+  .tag.approx{ background:#f3e2d3; color:var(--danger); }
+  .tag.link{ background:#e3ebe6; color:var(--moss); }
+  .tag.key{ background:#f6e8c8; color:#8a5a12; font-weight:700; border:1px solid #e0c583; }
+  #map{
+    flex:1;
+    background:#dfe6df;
+  }
+  .leaflet-popup-content-wrapper{
+    border-radius:10px;
+    font-family:'Noto Sans TC', sans-serif;
+  }
+  .popup-name{
+    font-family:'Noto Serif TC',serif;
+    font-weight:700;
+    font-size:14.5px;
+    margin:0 0 4px;
+    color:var(--ink);
+  }
+  .popup-addr{ font-size:12px; color:var(--text-dim); margin-bottom:6px;}
+  .popup-row{ font-size:12px; margin:2px 0; }
+  .popup-detail{ font-size:11.5px; color:var(--text-dim); margin-top:6px; line-height:1.5; }
+  .popup-link{
+    display:inline-block;
+    margin-top:8px;
+    padding:6px 12px;
+    background:var(--brass);
+    color:#fff !important;
+    border-radius:6px;
+    font-size:12px;
+    text-decoration:none;
+    font-weight:600;
+  }
+  .popup-link:hover{ background:#9c6f24; }
+  .empty-state{
+    padding:40px 20px;
+    text-align:center;
+    color:var(--text-dim);
+    font-size:13px;
+  }
+  ::-webkit-scrollbar{ width:8px; }
+  ::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }
+
+  @media (max-width:760px){
+    .layout{ flex-direction:column; }
+    #sidebar{ width:100%; min-width:0; height:42vh; border-right:none; border-bottom:1px solid var(--line);}
+    #map{ height:58vh; }
+  }
+</style>
 </head>
 <body>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>import pandas as pd</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">import json</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"># Read the excel file</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">df = pd.read_excel('中信房屋文山木新店_物件資料庫.xlsx', skiprows=3)</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">data_list = []</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">for _, row in df.iterrows():</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>price_val = row["總價 (萬元)"]</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>if pd.isna(price_val) or str(price_val).strip() == "":</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>p = None</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>else:</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>try:</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">            </span>p = int(price_val) if float(price_val) == int(price_val) else float(price_val)</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>except:</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">            </span>p = None</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"><span class="Apple-converted-space">            </span></span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>item = {</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>"id": int(row["編號 (ID)"]),</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>"name": str(row["案名 (Name)"]),</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>"addr": "" if pd.isna(row["地址 (Address)"]) else str(row["地址 (Address)"]),</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>"price": p,</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>"agent": "" if pd.isna(row["承辦人 (Agent)"]) else str(row["承辦人 (Agent)"]),</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>"lat": float(row["緯度 (Lat)"]),</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>"lon": float(row["經度 (Lon)"]),</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>"link": None if pd.isna(row["物件詳情網址 (Link)"]) else str(row["物件詳情網址 (Link)"]),</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>"approx": True if row["座標概略 (Approx)"] == "概略" else False,</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>"new": True if "是" in str(row["新增物件 (New)"]) else False,</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>"key": True if "是" in str(row["本店鑰匙 (Key)"]) else False,</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>"detail": "" if pd.isna(row["詳細描述 (Detail)"]) else str(row["詳細描述 (Detail)"])</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>data_list.append(item)</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">json_data_str = json.dumps(data_list, ensure_ascii=False)</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">html_code = """&lt;!DOCTYPE html&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;html lang="zh-Hant"&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;head&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;meta charset="UTF-8"&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;title&gt;中信房屋文山木新店 ｜ 物件總表地圖&lt;/title&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" /&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;link rel="preconnect" href="https://fonts.googleapis.com"&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;link rel="preconnect" href="https://fonts.gstatic.com" crossorigin&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;family=Noto+Serif+TC:wght@600;700&amp;display=swap" rel="stylesheet"&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;style&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>:root{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>--ink:#16302c;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>--ink-soft:#294844;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>--paper:#f4f1e8;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>--paper-panel:#ffffff;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>--brass:#b6842c;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>--brass-soft:#e8c98a;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>--moss:#3f6b5c;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>--line:#dcd6c4;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>--text:#20211d;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>--text-dim:#6a6f63;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>--danger:#a4462f;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>*{box-sizing:border-box;}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>html,body{height:100%;margin:0;}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>body{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-family:'Noto Sans TC', system-ui, sans-serif;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>background:var(--paper);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>color:var(--text);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>display:flex;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>flex-direction:column;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>overflow:hidden;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>header{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>background:var(--ink);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>color:#f4f1e8;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>padding:14px 22px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>display:flex;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>align-items:baseline;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>gap:14px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>flex-wrap:wrap;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>border-bottom:3px solid var(--brass);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>z-index:20;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>header h1{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-family:'Noto Serif TC', serif;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-weight:700;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-size:19px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>margin:0;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>letter-spacing:.5px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>header .sub{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-size:12.5px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>color:#cfd8c9;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>opacity:.85;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>header .count{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>margin-left:auto;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-size:12.5px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>background:rgba(255,255,255,.08);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>border:1px solid rgba(255,255,255,.18);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>padding:4px 10px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>border-radius:20px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.layout{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>flex:1;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>display:flex;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>min-height:0;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>#sidebar{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>width:340px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>min-width:340px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>background:var(--paper-panel);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>border-right:1px solid var(--line);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>display:flex;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>flex-direction:column;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>z-index:10;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.search-box{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>padding:12px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>border-bottom:1px solid var(--line);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.search-box input{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>width:100%;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>padding:9px 12px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>border:1px solid var(--line);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>border-radius:8px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-size:13.5px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-family:inherit;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>background:var(--paper);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>color:var(--text);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.search-box input:focus{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>outline:2px solid var(--brass);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>outline-offset:1px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.filters{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>display:flex;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>gap:6px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>padding:0 12px 10px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>flex-wrap:wrap;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.chip{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-size:11.5px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>padding:4px 10px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>border-radius:20px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>border:1px solid var(--line);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>background:var(--paper);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>cursor:pointer;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>color:var(--text-dim);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>user-select:none;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.chip.active{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>background:var(--ink);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>color:#fff;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>border-color:var(--ink);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.price-select{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-size:11.5px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>padding:4px 8px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>border-radius:20px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>border:1px solid var(--line);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>background:var(--paper);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>color:var(--text-dim);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>cursor:pointer;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-family:inherit;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.price-select:focus{ outline:2px solid var(--brass); outline-offset:1px; }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.price-select.active{ background:var(--ink); color:#fff; border-color:var(--ink); }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>#list{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>flex:1;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>overflow-y:auto;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.item{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>padding:11px 14px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>border-bottom:1px solid var(--line);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>cursor:pointer;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>transition:background .12s ease;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.item:hover{ background:#faf7ee; }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.item.selected{ background:#f0ead4; border-left:3px solid var(--brass); padding-left:11px; }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.item-top{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>display:flex;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>justify-content:space-between;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>align-items:baseline;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>gap:8px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.item-name{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-size:13.5px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-weight:600;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>line-height:1.35;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.item-name .num{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>color:var(--brass);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-family:'Noto Serif TC',serif;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-weight:700;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>margin-right:4px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.item-price{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-size:12.5px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>color:var(--moss);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-weight:700;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>white-space:nowrap;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.item-addr{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-size:11.5px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>color:var(--text-dim);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>margin-top:3px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.item-tags{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>margin-top:6px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>display:flex;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>gap:6px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>flex-wrap:wrap;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.tag{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-size:10.5px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>padding:2px 7px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>border-radius:4px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>background:#eee7d3;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>color:var(--ink-soft);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.tag.new{ background:#dceee2; color:var(--moss); }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.tag.approx{ background:#f3e2d3; color:var(--danger); }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.tag.link{ background:#e3ebe6; color:var(--moss); }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.tag.key{ background:#f6e8c8; color:#8a5a12; font-weight:700; border:1px solid #e0c583; }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>#map{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>flex:1;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>background:#dfe6df;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.leaflet-popup-content-wrapper{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>border-radius:10px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-family:'Noto Sans TC', sans-serif;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.popup-name{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-family:'Noto Serif TC',serif;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-weight:700;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-size:14.5px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>margin:0 0 4px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>color:var(--ink);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.popup-addr{ font-size:12px; color:var(--text-dim); margin-bottom:6px;}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.popup-row{ font-size:12px; margin:2px 0; }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.popup-detail{ font-size:11.5px; color:var(--text-dim); margin-top:6px; line-height:1.5; }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.popup-link{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>display:inline-block;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>margin-top:8px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>padding:6px 12px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>background:var(--brass);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>color:#fff !important;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>border-radius:6px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-size:12px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>text-decoration:none;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-weight:600;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.popup-link:hover{ background:#9c6f24; }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>.empty-state{</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>padding:40px 20px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>text-align:center;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>color:var(--text-dim);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>font-size:13px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>::-webkit-scrollbar{ width:8px; }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>@media (max-width:760px){</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>.layout{ flex-direction:column; }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>#sidebar{ width:100%; min-width:0; height:42vh; border-right:none; border-bottom:1px solid var(--line);}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>#map{ height:58vh; }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;/style&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;/head&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;body&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;header&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>&lt;h1&gt;中信房屋文山木新店 ｜ 物件總表地圖&lt;/h1&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>&lt;span class="sub"&gt;木新加盟店・文山、深坑、周邊區域現售物件 ｜ 🔑 表示本店有鑰匙，可即時帶看&lt;/span&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>&lt;span class="count" id="countBadge"&gt;共 0 筆&lt;/span&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;/header&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;div class="layout"&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div id="sidebar"&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="search-box"&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>&lt;input type="text" id="searchInput" placeholder="搜尋案名、地址或承辦人..." aria-label="搜尋物件"&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="filters"&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="chip active" data-filter="all"&gt;全部&lt;/div&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="chip" data-filter="new"&gt;新增物件&lt;/div&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="chip" data-filter="link"&gt;有詳情連結&lt;/div&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="chip" data-filter="key"&gt;🔑 有鑰匙&lt;/div&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>&lt;select class="price-select" id="priceRange" aria-label="價格區間篩選"&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>&lt;option value="all"&gt;💰 全部價格&lt;/option&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>&lt;option value="0-1000"&gt;1000萬以下&lt;/option&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>&lt;option value="1000-1500"&gt;1000–1500萬&lt;/option&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>&lt;option value="1500-2000"&gt;1500–2000萬&lt;/option&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>&lt;option value="2000-3000"&gt;2000–3000萬&lt;/option&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>&lt;option value="3000-5000"&gt;3000–5000萬&lt;/option&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>&lt;option value="5000-"&gt;5000萬以上&lt;/option&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/select&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div id="list"&gt;&lt;/div&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div id="map"&gt;&lt;/div&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;/div&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"&gt;&lt;/script&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;script&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">const DATA = """ + json_data_str + """;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">const map = L.map('map', { zoomControl: true }).setView([24.995, 121.565], 13);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>maxZoom: 19,</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>attribution: '&amp;copy; OpenStreetMap contributors'</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">}).addTo(map);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">function makeIcon(item){</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>const color = item.new ? '#3f6b5c' : '#b6842c';</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>const ring = item.approx ? '#a4462f' : color;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>const keyBadge = item.key ? `&lt;div style="</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>position:absolute;top:-6px;right:-7px;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>width:16px;height:16px;border-radius:50%;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>background:#fff;border:1px solid #b6842c;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>display:flex;align-items:center;justify-content:center;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>font-size:9px;line-height:1;box-shadow:0 1px 2px rgba(0,0,0,.3);z-index:5;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>"&gt;🔑&lt;/div&gt;` : '';</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>return L.divIcon({</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>className: '',</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>html: `&lt;div style="position:relative;width:26px;height:26px;"&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div style="</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>width:26px;height:26px;border-radius:50% 50% 50% 0;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>background:${color};</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>border:2px solid ${ring};</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>transform:rotate(-45deg);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>box-shadow:0 2px 4px rgba(0,0,0,.35);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>display:flex;align-items:center;justify-content:center;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>"&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>&lt;span style="</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>transform:rotate(45deg);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>color:#fff;font-size:10px;font-weight:700;font-family:'Noto Sans TC',sans-serif;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>"&gt;${item.id}&lt;/span&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;${keyBadge}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;`,</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>iconSize:[26,26],</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>iconAnchor:[13,26],</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>popupAnchor:[0,-24]</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>});</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">const markers = {};</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">const bounds = [];</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">DATA.forEach(item =&gt; {</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>const marker = L.marker([item.lat, item.lon], { icon: makeIcon(item) }).addTo(map);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>const priceText = item.price ? `總價 ${item.price} 萬` : '售價未標示';</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>const agentText = item.agent ? `承辦 ${item.agent}` : '';</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>let html = `&lt;div class="popup-name"&gt;${item.id}. ${item.name}&lt;/div&gt;`;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>html += `&lt;div class="popup-addr"&gt;${item.addr || ''}&lt;/div&gt;`;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>html += `&lt;div class="popup-row"&gt;&lt;strong&gt;${priceText}&lt;/strong&gt;${agentText ? ' ｜ ' + agentText : ''}&lt;/div&gt;`;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>if(item.key){ html += `&lt;div class="popup-row" style="color:#8a5a12;font-weight:700;"&gt;🔑 本店有鑰匙，可即時帶看&lt;/div&gt;`; }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>if(item.detail){ html += `&lt;div class="popup-detail"&gt;${item.detail}&lt;/div&gt;`; }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>if(item.approx){ html += `&lt;div class="popup-row" style="color:#a4462f;"&gt;⚠ 座標為概略位置，門牌待補&lt;/div&gt;`; }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>if(item.link){ html += `&lt;a class="popup-link" href="${item.link}" target="_blank" rel="noopener"&gt;查看詳情 →&lt;/a&gt;`; }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>marker.bindPopup(html, { maxWidth: 280 });</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>markers[item.id] = marker;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>bounds.push([item.lat, item.lon]);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">});</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">if(bounds.length){ map.fitBounds(bounds, { padding: [30,30] }); }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">let activeFilter = 'all';</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">let searchTerm = '';</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">let priceRange = 'all';</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">function passesFilter(item){</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>if(activeFilter === 'new' &amp;&amp; !item.new) return false;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>if(activeFilter === 'link' &amp;&amp; !item.link) return false;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>if(activeFilter === 'key' &amp;&amp; !item.key) return false;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>if(priceRange !== 'all'){</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>const p = item.price;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>if(p === null || p === undefined || p === '') return false;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>const [lo, hi] = priceRange.split('-');</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>if(lo &amp;&amp; p &lt; Number(lo)) return false;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>if(hi &amp;&amp; p &gt;= Number(hi)) return false;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>if(searchTerm){</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>const hay = (item.name + ' ' + item.addr + ' ' + (item.agent||'') + (item.key ? ' 有鑰匙 key 鑰匙' : '')).toLowerCase();</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>if(!hay.includes(searchTerm)) return false;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>return true;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">function renderList(){</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>const list = document.getElementById('list');</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>const filtered = DATA.filter(passesFilter);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('countBadge').textContent = `共 ${DATA.length} 筆・🔑 ${DATA.filter(d=&gt;d.key).length} 筆有鑰匙・顯示 ${filtered.length} 筆`;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>DATA.forEach(item =&gt; {</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>const m = markers[item.id];</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>if(!m) return;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>if(passesFilter(item)){ if(!map.hasLayer(m)) m.addTo(map); }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>else if(map.hasLayer(m)){ map.removeLayer(m); }</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>});</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>if(filtered.length === 0){</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>list.innerHTML = '&lt;div class="empty-state"&gt;沒有符合條件的物件&lt;/div&gt;';</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>return;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>list.innerHTML = filtered.map(item =&gt; {</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>const priceText = item.price ? `${item.price}萬` : '售價未標示';</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>let tags = '';</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>if(item.key) tags += '&lt;span class="tag key"&gt;🔑 有鑰匙&lt;/span&gt;';</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>if(item.new) tags += '&lt;span class="tag new"&gt;新增&lt;/span&gt;';</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>if(item.link) tags += '&lt;span class="tag link"&gt;有連結&lt;/span&gt;';</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>if(item.approx) tags += '&lt;span class="tag approx"&gt;座標概略&lt;/span&gt;';</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>return `&lt;div class="item" data-id="${item.id}"&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="item-top"&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div class="item-name"&gt;&lt;span class="num"&gt;#${item.id}&lt;/span&gt;${item.name}&lt;/div&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div class="item-price"&gt;${priceText}&lt;/div&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="item-addr"&gt;${item.addr || ''}${item.agent ? ' ｜ 承辦 ' + item.agent : ''}&lt;/div&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="item-tags"&gt;${tags}&lt;/div&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;`;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>}).join('');</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>list.querySelectorAll('.item').forEach(el =&gt; {</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>el.addEventListener('click', () =&gt; {</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>const id = parseInt(el.dataset.id, 10);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>const item = DATA.find(d =&gt; d.id === id);</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>if(!item) return;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>map.setView([item.lat, item.lon], 17, { animate: true });</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>markers[id].openPopup();</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>document.querySelectorAll('.item').forEach(x =&gt; x.classList.remove('selected'));</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">      </span>el.classList.add('selected');</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>});</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>});</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">}</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">document.getElementById('searchInput').addEventListener('input', (e) =&gt; {</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>searchTerm = e.target.value.trim().toLowerCase();</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>renderList();</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">});</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">document.querySelectorAll('.chip').forEach(chip =&gt; {</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>chip.addEventListener('click', () =&gt; {</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>document.querySelectorAll('.chip').forEach(c =&gt; c.classList.remove('active'));</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>chip.classList.add('active');</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>activeFilter = chip.dataset.filter;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>renderList();</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>});</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">});</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">document.getElementById('priceRange').addEventListener('change', (e) =&gt; {</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>priceRange = e.target.value;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>e.target.classList.toggle('active', priceRange !== 'all');</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">  </span>renderList();</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">});</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">renderList();</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;/script&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;/body&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">&lt;/html&gt;</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">"""</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421; min-height: 22.0px"><span class="s1"></span><br></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1">with open('index.html', 'w', encoding='utf-8') as f:</span></h1>
-<h1 style="margin: 0.0px 0.0px 0.0px 0.0px; font: 19.0px 'PingFang TC'; color: #f1eee2; -webkit-text-stroke: #f1eee2; background-color: #122421"><span class="s1"><span class="Apple-converted-space">    </span>f.write(html_code)</span></h1>
+<header>
+  <h1>中信房屋文山木新店 ｜ 物件總表地圖</h1>
+  <span class="sub">木新加盟店・文山、深坑、周邊區域現售物件 ｜ 🔑 表示本店有鑰匙，可即時帶看</span>
+  <span class="count" id="countBadge">共 0 筆</span>
+</header>
+<div class="layout">
+  <div id="sidebar">
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="搜尋案名、地址或承辦人..." aria-label="搜尋物件">
+    </div>
+    <div class="filters">
+      <div class="chip active" data-filter="all">全部</div>
+      <div class="chip" data-filter="new">新增物件</div>
+      <div class="chip" data-filter="link">有詳情連結</div>
+      <div class="chip" data-filter="key">🔑 有鑰匙</div>
+      <select class="price-select" id="priceRange" aria-label="價格區間篩選">
+        <option value="all">💰 全部價格</option>
+        <option value="0-1000">1000萬以下</option>
+        <option value="1000-1500">1000–1500萬</option>
+        <option value="1500-2000">1500–2000萬</option>
+        <option value="2000-3000">2000–3000萬</option>
+        <option value="3000-5000">3000–5000萬</option>
+        <option value="5000-">5000萬以上</option>
+      </select>
+    </div>
+    <div id="list"></div>
+  </div>
+  <div id="map"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const DATA = """ + json_data_str + """;
+
+const map = L.map('map', { zoomControl: true }).setView([24.995, 121.565], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+function makeIcon(item){
+  const color = item.new ? '#3f6b5c' : '#b6842c';
+  const ring = item.approx ? '#a4462f' : color;
+  const keyBadge = item.key ? `<div style="
+        position:absolute;top:-6px;right:-7px;
+        width:16px;height:16px;border-radius:50%;
+        background:#fff;border:1px solid #b6842c;
+        display:flex;align-items:center;justify-content:center;
+        font-size:9px;line-height:1;box-shadow:0 1px 2px rgba(0,0,0,.3);z-index:5;
+      ">🔑</div>` : '';
+  return L.divIcon({
+    className: '',
+    html: `<div style="position:relative;width:26px;height:26px;">
+      <div style="
+        width:26px;height:26px;border-radius:50% 50% 50% 0;
+        background:${color};
+        border:2px solid ${ring};
+        transform:rotate(-45deg);
+        box-shadow:0 2px 4px rgba(0,0,0,.35);
+        display:flex;align-items:center;justify-content:center;
+      ">
+      <span style="
+        transform:rotate(45deg);
+        color:#fff;font-size:10px;font-weight:700;font-family:'Noto Sans TC',sans-serif;
+      ">${item.id}</span>
+      </div>${keyBadge}
+    </div>`,
+    iconSize:[26,26],
+    iconAnchor:[13,26],
+    popupAnchor:[0,-24]
+  });
+}
+
+const markers = {};
+const bounds = [];
+
+DATA.forEach(item => {
+  const marker = L.marker([item.lat, item.lon], { icon: makeIcon(item) }).addTo(map);
+  const priceText = item.price ? `總價 ${item.price} 萬` : '售價未標示';
+  const agentText = item.agent ? `承辦 ${item.agent}` : '';
+  let html = `<div class="popup-name">${item.id}. ${item.name}</div>`;
+  html += `<div class="popup-addr">${item.addr || ''}</div>`;
+  html += `<div class="popup-row"><strong>${priceText}</strong>${agentText ? ' ｜ ' + agentText : ''}</div>`;
+  if(item.key){ html += `<div class="popup-row" style="color:#8a5a12;font-weight:700;">🔑 本店有鑰匙，可即時帶看</div>`; }
+  if(item.detail){ html += `<div class="popup-detail">${item.detail}</div>`; }
+  if(item.approx){ html += `<div class="popup-row" style="color:#a4462f;">⚠ 座標為概略位置，門牌待補</div>`; }
+  if(item.link){ html += `<a class="popup-link" href="${item.link}" target="_blank" rel="noopener">查看詳情 →</a>`; }
+  marker.bindPopup(html, { maxWidth: 280 });
+  markers[item.id] = marker;
+  bounds.push([item.lat, item.lon]);
+});
+
+if(bounds.length){ map.fitBounds(bounds, { padding: [30,30] }); }
+
+let activeFilter = 'all';
+let searchTerm = '';
+let priceRange = 'all';
+
+function passesFilter(item){
+  if(activeFilter === 'new' && !item.new) return false;
+  if(activeFilter === 'link' && !item.link) return false;
+  if(activeFilter === 'key' && !item.key) return false;
+  if(priceRange !== 'all'){
+    const p = item.price;
+    if(p === null || p === undefined || p === '') return false;
+    const [lo, hi] = priceRange.split('-');
+    if(lo && p < Number(lo)) return false;
+    if(hi && p >= Number(hi)) return false;
+  }
+  if(searchTerm){
+    const hay = (item.name + ' ' + item.addr + ' ' + (item.agent||'') + (item.key ? ' 有鑰匙 key 鑰匙' : '')).toLowerCase();
+    if(!hay.includes(searchTerm)) return false;
+  }
+  return true;
+}
+
+function renderList(){
+  const list = document.getElementById('list');
+  const filtered = DATA.filter(passesFilter);
+  document.getElementById('countBadge').textContent = `共 ${DATA.length} 筆・🔑 ${DATA.filter(d=>d.key).length} 筆有鑰匙・顯示 ${filtered.length} 筆`;
+
+  DATA.forEach(item => {
+    const m = markers[item.id];
+    if(!m) return;
+    if(passesFilter(item)){ if(!map.hasLayer(m)) m.addTo(map); }
+    else if(map.hasLayer(m)){ map.removeLayer(m); }
+  });
+
+  if(filtered.length === 0){
+    list.innerHTML = '<div class="empty-state">沒有符合條件的物件</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(item => {
+    const priceText = item.price ? `${item.price}萬` : '售價未標示';
+    let tags = '';
+    if(item.key) tags += '<span class="tag key">🔑 有鑰匙</span>';
+    if(item.new) tags += '<span class="tag new">新增</span>';
+    if(item.link) tags += '<span class="tag link">有連結</span>';
+    if(item.approx) tags += '<span class="tag approx">座標概略</span>';
+    return `<div class="item" data-id="${item.id}">
+      <div class="item-top">
+        <div class="item-name"><span class="num">#${item.id}</span>${item.name}</div>
+        <div class="item-price">${priceText}</div>
+      </div>
+      <div class="item-addr">${item.addr || ''}${item.agent ? ' ｜ 承辦 ' + item.agent : ''}</div>
+      <div class="item-tags">${tags}</div>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.item').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = parseInt(el.dataset.id, 10);
+      const item = DATA.find(d => d.id === id);
+      if(!item) return;
+      map.setView([item.lat, item.lon], 17, { animate: true });
+      markers[id].openPopup();
+      document.querySelectorAll('.item').forEach(x => x.classList.remove('selected'));
+      el.classList.add('selected');
+    });
+  });
+}
+
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  searchTerm = e.target.value.trim().toLowerCase();
+  renderList();
+});
+
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeFilter = chip.dataset.filter;
+    renderList();
+  });
+});
+
+document.getElementById('priceRange').addEventListener('change', (e) => {
+  priceRange = e.target.value;
+  e.target.classList.toggle('active', priceRange !== 'all');
+  renderList();
+});
+
+renderList();
+</script>
 </body>
 </html>
+"""
+
+with open('index.html', 'w', encoding='utf-8') as f:
+    f.write(html_code)
